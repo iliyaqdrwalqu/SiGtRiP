@@ -233,6 +233,9 @@ class ArgosCore:
         self.homeostasis = None
         self.curiosity = None
         self._homeostasis_block_heavy = False
+        self.web_explorer = None
+        self.awa = None
+        self.sustain = None
 
         self._init_voice()
         self._setup_ai()
@@ -257,6 +260,9 @@ class ArgosCore:
         self._init_grist()
         self._init_cloud_object_storage()
         self._init_own_model()
+        self._init_web_explorer()
+        self._init_awa_core()
+        self._init_sustain()
         log.info("ArgosCore FINAL v2.0 инициализирован.")
 
     # ═══════════════════════════════════════════════════════
@@ -469,6 +475,51 @@ class ArgosCore:
         except Exception as e:
             self.own_model = None
             log.warning("OwnModel: %s", e)
+
+    def _init_web_explorer(self):
+        """Инициализация бесплатного интернет-разведчика."""
+        try:
+            from src.skills.web_explorer import ArgosWebExplorer
+            self.web_explorer = ArgosWebExplorer(memory=self.memory)
+            # Подключаем к scrapper для обратной совместимости
+            if hasattr(self.scrapper, '__class__'):
+                self.scrapper.__class__.learn = lambda self_s, q: self.web_explorer.learn(q)
+            log.info("WebExplorer: OK (DuckDuckGo/Wikipedia/GitHub/arXiv)")
+        except Exception as e:
+            self.web_explorer = None
+            log.warning("WebExplorer: %s", e)
+
+    def _init_awa_core(self):
+        """Инициализация AWA-Core (Model Splitting маршрутизатор)."""
+        try:
+            from src.awa_core import AWACore
+            self.awa = AWACore(core=self)
+            # Подключаем ContextDB к DialogContext
+            if self.memory:
+                try:
+                    from src.db_init import ContextDB
+                    self.context.db = ContextDB()
+                    log.info("ContextDB: подключена к DialogContext")
+                except Exception as e:
+                    log.warning("ContextDB init: %s", e)
+            log.info("AWA-Core: OK (Model Splitting активен)")
+        except Exception as e:
+            self.awa = None
+            log.warning("AWA-Core: %s", e)
+
+    def _init_sustain(self):
+        """Инициализация модуля самообеспечения."""
+        try:
+            from src.self_sustain import SelfSustainEngine
+            self.sustain = SelfSustainEngine(core=self)
+            if os.getenv("ARGOS_SUSTAIN", "on").strip().lower() not in {
+                "0", "off", "false", "no", "нет"
+            }:
+                self.sustain.start()
+            log.info("SelfSustain: OK")
+        except Exception as e:
+            self.sustain = None
+            log.warning("SelfSustain: %s", e)
 
     def process(self, user_text: str, admin=None, flasher=None) -> dict:
         """Обёртка над process_logic с дефолтными значениями admin/flasher."""
@@ -1067,15 +1118,19 @@ class ArgosCore:
             log.error("[Ollama] Ошибка при скачивании модели '%s': %s", model, exc)
         return False
 
-    def _ask_ollama(self, context: str, user_text: str) -> str | None:
+    def _ask_ollama(self, context: str, user_text: str, model_override: str | None = None) -> str | None:
         if not self._ensure_ollama_running():
             log.error("[Ollama] _ask_ollama: сервис недоступен, запрос отменён")
             return None
         try:
+            # ── Identity Anchor: Аргос всегда помнит кто он ──
+            from src.context_manager import IDENTITY_ANCHOR
+            anchor_prefix = f"[ID: ARGOS v1.4.0 | User: Vsevolod | Quantum: Analytic] {IDENTITY_ANCHOR}\n\n"
+
             # Добавляем историю в промпт
             hist = self.context.get_prompt_context()
-            full_prompt = f"{context}\n\n{hist}\n\nUser: {user_text}\nArgos:"
-            model = os.getenv("OLLAMA_MODEL", "llama3.2:1b")
+            full_prompt = f"{anchor_prefix}{context}\n\n{hist}\n\nUser: {user_text}\nArgos:"
+            model = model_override or os.getenv("OLLAMA_MODEL", "argos-core")
             ollama_timeout = int(os.getenv("OLLAMA_TIMEOUT", "600"))
             log.info("[Ollama] Отправляю запрос → %s | модель: %s", self.ollama_url, model)
             res = requests.post(
@@ -1309,6 +1364,146 @@ class ArgosCore:
     # ═══════════════════════════════════════════════════════
     def execute_intent(self, text: str, admin, flasher) -> str | None:
         t = text.lower()
+
+        # ── Интернет-обучение (бесплатно) ────────────────────
+        if self.web_explorer and any(k in t for k in [
+            "изучи ", "изучи интернет", "найди в интернете", "поищи в интернете",
+            "погугли ", "поищи ", "найди информацию", "learn ", "search web",
+            "что такое ", "расскажи про ", "расскажи о ",
+        ]):
+            # Извлекаем тему из команды
+            topic = text
+            for marker in [
+                "изучи интернет", "найди в интернете", "поищи в интернете",
+                "погугли", "поищи", "найди информацию", "изучи",
+                "что такое", "расскажи про", "расскажи о", "learn", "search web",
+            ]:
+                if marker in t:
+                    idx = t.find(marker)
+                    topic = text[idx + len(marker):].strip().strip(":")
+                    break
+            if topic:
+                return self.web_explorer.learn(topic.strip())
+            return self.web_explorer.status()
+
+        if self.web_explorer and any(k in t for k in [
+            "веб статус", "web статус", "интернет статус", "explorer status",
+        ]):
+            return self.web_explorer.status()
+
+        if self.web_explorer and any(k in t for k in [
+            "открой страницу ", "загрузи страницу ", "fetch ", "прочитай сайт ",
+        ]):
+            url = text.split()[-1] if text.split() else ""
+            if url.startswith("http"):
+                return self.web_explorer.fetch_page(url)
+
+        if self.web_explorer and any(k in t for k in [
+            "найди на github", "github поиск", "github search",
+        ]):
+            query = text
+            for marker in ["найди на github", "github поиск", "github search"]:
+                if marker in t:
+                    query = text[t.find(marker) + len(marker):].strip()
+                    break
+            return self.web_explorer.search_github(query) or "GitHub: ничего не найдено."
+
+        if self.web_explorer and any(k in t for k in [
+            "найди статью", "arxiv поиск", "arxiv search", "научная статья",
+        ]):
+            query = text
+            for marker in ["найди статью", "arxiv поиск", "arxiv search", "научная статья"]:
+                if marker in t:
+                    query = text[t.find(marker) + len(marker):].strip()
+                    break
+            return self.web_explorer.search_arxiv(query) or "arXiv: статей не найдено."
+
+        # ── Самообеспечение ──────────────────────────────────
+        if self.sustain and any(k in t for k in [
+            "самообеспечение статус", "sustain status", "статус обучения",
+        ]):
+            return self.sustain.status()
+        if self.sustain and any(k in t for k in [
+            "самообеспечение вкл", "sustain on", "начни учиться",
+        ]):
+            return self.sustain.start()
+        if self.sustain and any(k in t for k in [
+            "самообеспечение выкл", "sustain off",
+        ]):
+            return self.sustain.stop()
+        if self.sustain and any(k in t for k in [
+            "учись сейчас", "learn now", "обучись",
+        ]):
+            topic_part = text
+            for marker in ["учись сейчас", "learn now", "обучись"]:
+                if marker in t:
+                    topic_part = text[t.find(marker) + len(marker):].strip()
+                    break
+            return self.sustain.learn_now(topic_part or "")
+        if self.sustain and any(k in t for k in [
+            "бесплатные ресурсы", "free resources", "что бесплатно",
+        ]):
+            return self.sustain.free_resources_report()
+
+        # ── AWA Model Splitting ───────────────────────────────
+        if self.awa and any(k in t for k in [
+            "awa статус", "awa status", "маршрутизатор статус",
+        ]):
+            return self.awa.status()
+        if self.awa and any(k in t for k in [
+            "awa задача ", "awa task ", "route task ",
+        ]):
+            task_part = text
+            for marker in ["awa задача", "awa task", "route task"]:
+                if marker in t:
+                    task_part = text[t.find(marker) + len(marker):].strip()
+                    break
+            return self.awa.route_task(task_part)
+
+        # ── GPU / VRAM мониторинг ────────────────────────────
+        if any(k in t for k in [
+            "gpu статус", "vram статус", "видеокарта статус",
+            "gpu status", "vram check", "оптимизируй vram",
+        ]):
+            return self.sensors.optimize_vram_distribution()
+
+        # ── Сжатие памяти (Context Anchor) ───────────────────
+        if any(k in t for k in [
+            "сожми память", "compress memory", "сжать контекст", "очисти контекст",
+        ]):
+            ask_fn = None
+            if hasattr(self, "_ask_ai_simple"):
+                ask_fn = self._ask_ai_simple
+            elif self.memory:
+                ask_fn = lambda p: (
+                    self._ask_gemini("", p) or self._ask_ollama("", p) or ""
+                )
+            return self.context.compress_memory(ask_fn)
+
+        # ── Глубокий анализ (Idle Cycle) ─────────────────────
+        if self.curiosity and any(k in t for k in [
+            "глубокий анализ", "idle cycle", "deep analysis",
+            "любопытство анализ",
+        ]):
+            return self.curiosity.idle_cycle()
+
+        # ── Гибридный маршрутизатор: CPU > 60% → Gemini ──────
+        if any(kw in t for kw in ["напиши код", "разработай", "реализуй", "создай алгоритм"]):
+            try:
+                import psutil as _psutil
+                cpu_now = _psutil.cpu_percent(interval=0.3)
+                if cpu_now > 60 and self.model:
+                    log.info(
+                        "Гибридный маршрут: CPU=%d%% > 60, передаю задачу Gemini",
+                        cpu_now,
+                    )
+                    result = self._ask_gemini("", text)
+                    if result:
+                        return (
+                            f"🧠 [CPU={cpu_now:.0f}%] Задача передана Внешнему Интеллекту:\n{result}"
+                        )
+            except Exception:
+                pass
 
         if any(k in t for k in [
             "проверь работу ии системы",

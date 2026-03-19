@@ -19,6 +19,18 @@ class ArgosMemory:
     def __init__(self):
         os.makedirs("data", exist_ok=True)
         self.conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+        # ── Оптимизация SQLite для 28GB RAM ──────────────────
+        # WAL = Write-Ahead Logging: запись в 10x быстрее, чтение не блокируется
+        self.conn.execute("PRAGMA journal_mode = WAL")
+        # NORMAL: fsync только при критических точках (быстрее FULL)
+        self.conn.execute("PRAGMA synchronous = NORMAL")
+        # Выделяем ~40MB под page-кэш (отрицательное значение = килобайты)
+        self.conn.execute("PRAGMA cache_size = -40000")
+        # Хранить временные таблицы в памяти, а не на диске
+        self.conn.execute("PRAGMA temp_store = MEMORY")
+        # Ускоряем мультипоточный доступ
+        self.conn.execute("PRAGMA wal_autocheckpoint = 1000")
+        self.conn.commit()
         self.vector = ArgosVectorStore(path="data/chroma")
         self.grist = None
         self._init_db()
@@ -254,6 +266,26 @@ class ArgosMemory:
         for cat, key, val, _ in facts[:60]:
             lines.append(f"  [{cat}] {key}: {val}")
         return "\n".join(lines)
+
+    def fast_store(self, fact: str, category: str = "realtime") -> str:
+        """
+        Мгновенное сохранение факта в WAL-режиме SQLite.
+        Используется для быстрой записи данных в реальном времени
+        (события, метрики, результаты поиска) без блокировки.
+        """
+        if not fact or not fact.strip():
+            return ""
+        key = f"fact_{int(time.time() * 1000)}"
+        try:
+            self.conn.execute(
+                "INSERT OR IGNORE INTO facts (category, key, value, utility_signal) VALUES (?,?,?,?)",
+                (category, key, fact[:500], 1.0),
+            )
+            self.conn.commit()
+            return key
+        except Exception as e:
+            log.warning("fast_store: %s", e)
+            return ""
 
     def log_dialogue(self, role: str, message: str, state: str = ""):
         text = (message or "").strip()
