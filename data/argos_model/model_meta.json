@@ -1,8 +1,8 @@
 {
-  "version": "1.4.0+395aa613",
-  "trained_at": "2026-03-18T12:55:27.900858",
-  "accuracy": 0.42105263157894735,
-  "samples": 95,
+  "version": "1.4.0+b110dcdd",
+  "trained_at": "2026-03-19T19:08:25.708404",
+  "accuracy": 0.45,
+  "samples": 96,
   "classes": [
     "ai",
     "build",
