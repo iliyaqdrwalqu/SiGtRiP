@@ -7,6 +7,13 @@ from typing import Any, Dict, List, Optional
 from src.argos_logger import get_logger
 log = get_logger("argos.awa")
 
+# Ключевые слова, требующие «Большого мозга» (сложные задачи)
+_DEEP_KEYWORDS = (
+    "код", "напиши", "создай", "разработай", "реализуй", "анализ", "analyse",
+    "code", "write", "generate", "implement", "explain", "объясни",
+    "сравни", "compare", "почему", "why", "как работает", "архитектура",
+)
+
 class ModuleDescriptor:
     __slots__ = ("name","ref","priority","category","capabilities","health","last_heartbeat")
     def __init__(self, name, ref, priority=50, category="general", capabilities=None):
@@ -149,3 +156,67 @@ class AWACore:
         stale = self.check_stale(self._heartbeat_max_age_sec)
         if not stale: return "✅ AWA: все модули здоровы."
         return "⚠️ AWA: устаревшие модули:\\n" + "\\n".join(f"  - {n}" for n in stale)
+
+    # ── MODEL SPLITTING: Малый/Большой мозг ──────────────────────────────────
+
+    def _is_deep_task(self, task: str) -> bool:
+        """Определяет, требует ли задача «Большого мозга» (сложной модели)."""
+        task_lower = task.lower()
+        if len(task) > 80:
+            return True
+        return any(kw in task_lower for kw in _DEEP_KEYWORDS)
+
+    def route_task(self, task: str) -> str:
+        """
+        Model Splitting — маршрутизация задачи между «Малым» и «Большим» мозгом.
+
+        • Малый мозг (Reflex): сверхлёгкая модель (tinyllama) для коротких/простых задач.
+          Мгновенный отклик, не грузит GPU/CPU.
+        • Большой мозг (Evolution): тяжёлая модель argos-core для написания кода,
+          глубокой аналитики и сложных вопросов.
+
+        Управляется переменными окружения:
+          OLLAMA_FAST_MODEL  — модель рефлексов (default: tinyllama)
+          OLLAMA_MODEL       — основная модель   (default: argos-core)
+          OLLAMA_HOST        — хост Ollama        (default: http://localhost:11434)
+        """
+        if not task or not task.strip():
+            return "⚠️ AWA: пустая задача"
+
+        host       = os.getenv("OLLAMA_HOST", "http://localhost:11434").rstrip("/")
+        fast_model = os.getenv("OLLAMA_FAST_MODEL", "tinyllama")
+        core_model = os.getenv("OLLAMA_MODEL", "argos-core")
+
+        use_deep   = self._is_deep_task(task)
+        model      = core_model if use_deep else fast_model
+        brain_name = "🧠 Большой мозг" if use_deep else "⚡ Малый мозг"
+
+        log.info("AWA route_task: %s → модель=%s | задача: %s", brain_name, model, task[:60])
+
+        # Если в core есть Ollama — делегируем ему
+        if self.core and hasattr(self.core, "_ask_ollama"):
+            try:
+                result = self.core._ask_ollama("", task, model_override=model)
+                if result:
+                    return result
+            except Exception as e:
+                log.warning("AWA route_task ollama error: %s", e)
+
+        # Прямой HTTP-вызов к Ollama как запасной путь
+        try:
+            import urllib.request
+            payload = json.dumps(
+                {"model": model, "prompt": task, "stream": False}
+            ).encode()
+            req = urllib.request.Request(
+                f"{host}/api/generate",
+                data=payload,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                data = json.loads(resp.read().decode())
+                return data.get("response", "").strip() or f"⚠️ AWA: пустой ответ от {model}"
+        except Exception as e:
+            log.error("AWA route_task direct HTTP error: %s", e)
+            return f"⚠️ AWA route_task: ошибка — {e}"

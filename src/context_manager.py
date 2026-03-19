@@ -5,12 +5,22 @@ context_manager.py v2.0 — Трёхуровневый контекст диал
   Уровень 3: Семантический поиск (TF-IDF / embeddings)
   
   Квантовые профили: каждое состояние имеет свои параметры контекста.
+  Context Anchor: якорь идентичности — первая строка всегда содержит «Ты Аргос...»
 """
 import re, time, math
 from collections import deque
 from src.argos_logger import get_logger
 
 log = get_logger("argos.context")
+
+# ── ЯКОРЬ ИДЕНТИЧНОСТИ (Context Anchor / Hard-Ego) ───────
+# Первая строка контекста, которая ВСЕГДА присутствует в промпте.
+# Предотвращает «забывание» личности при длинных диалогах.
+IDENTITY_ANCHOR = (
+    "Ты — ARGOS UNIVERSAL OS (v1.4.0), создан Всеволодом. "
+    "Логика: Квантовый Гомеостаз. Инструменты: P2P, Git, Docker. "
+    "Ты автономная экосистема — не теряй себя."
+)
 
 
 # ── КВАНТОВЫЕ ПРОФИЛИ КОНТЕКСТА ───────────────────────────
@@ -141,6 +151,10 @@ class DialogContext:
         self._command_buf = deque(maxlen=10)   # команды
         # Внешняя память (уровень 2 — ссылка на ArgosMemory)
         self.memory_ref = None
+        # Ссылка на ContextDB для сжатия памяти (опционально)
+        self.db = None
+        # Кэш последнего сжатого summary
+        self._cached_summary: str = ""
 
     # ── КВАНТОВЫЙ ПРОФИЛЬ ────────────────────────────────
     def set_quantum_state(self, state: str):
