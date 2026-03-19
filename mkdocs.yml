@@ -13,6 +13,7 @@ nav:
       - Запуск и установка: user-guide/quickstart.md
       - Повседневное использование: user-guide/usage.md
   - Developer Guide:
+      - Архитектура системы: developer-guide/architecture.md
       - Плагины и навыки: developer-guide/skills.md
   - Philosophy:
       - Цифровое бессмертие: philosophy/digital-immortality.md
