@@ -145,6 +145,105 @@ class ArgosSensorBridge:
             "ram": round(sum(h["ram"] for h in recent) / len(recent), 2),
         }
 
+    # ── GPU / VRAM МОНИТОРИНГ (AMD RX 580 + RX 560) ──────
+
+    def get_gpu_metrics(self) -> list[dict]:
+        """
+        Возвращает список GPU с информацией о VRAM.
+        Поддерживает AMD (через `rocm-smi`), NVIDIA (через `nvidia-smi`).
+        Если ни то, ни другое недоступно — возвращает пустой список.
+        """
+        gpus = []
+
+        # Попытка через rocm-smi (AMD Linux/ROCm)
+        try:
+            import subprocess
+            out = subprocess.check_output(
+                ["rocm-smi", "--showmeminfo", "vram", "--json"],
+                timeout=5, stderr=subprocess.DEVNULL,
+            ).decode()
+            import json as _json
+            data = _json.loads(out)
+            for dev_id, info in data.items():
+                used  = int(info.get("VRAM Total Used Memory (B)", 0)) // (1024**2)
+                total = int(info.get("VRAM Total Memory (B)", 1)) // (1024**2)
+                gpus.append({"id": dev_id, "used_mb": used, "total_mb": total,
+                             "used_pct": round(used / max(total, 1) * 100, 1),
+                             "backend": "rocm-smi"})
+            return gpus
+        except Exception:
+            pass
+
+        # Попытка через nvidia-smi (NVIDIA)
+        try:
+            import subprocess
+            out = subprocess.check_output(
+                ["nvidia-smi", "--query-gpu=index,memory.used,memory.total",
+                 "--format=csv,noheader,nounits"],
+                timeout=5, stderr=subprocess.DEVNULL,
+            ).decode()
+            for line in out.strip().splitlines():
+                parts = [p.strip() for p in line.split(",")]
+                if len(parts) == 3:
+                    gpus.append({"id": parts[0], "used_mb": int(parts[1]),
+                                 "total_mb": int(parts[2]),
+                                 "used_pct": round(int(parts[1]) / max(int(parts[2]), 1) * 100, 1),
+                                 "backend": "nvidia-smi"})
+            return gpus
+        except Exception:
+            pass
+
+        return []
+
+    def optimize_vram_distribution(self) -> str:
+        """
+        VRAM-Unlocker: проверяет нагрузку на GPU через `ollama ps`
+        и сообщает, если RX 580 работает не на полную мощность.
+        Возвращает строку-отчёт для отображения в интерфейсе.
+        """
+        lines = ["📊 VRAM-АНАЛИЗ:"]
+
+        # Проверка через `ollama ps`
+        try:
+            import subprocess
+            result = subprocess.check_output(
+                ["ollama", "ps"], timeout=5, stderr=subprocess.DEVNULL
+            ).decode()
+            lines.append(f"  Ollama модели:\n{result.strip()}")
+
+            # Детект ограничения: 8B-модель занимает ~4GB вместо ~8GB
+            if "4.0 GB" in result and "8b" in result.lower():
+                lines.append(
+                    "  ⚠️  ОБНАРУЖЕНО ОГРАНИЧЕНИЕ VRAM!\n"
+                    "      RX 580 работает не на полную мощность.\n"
+                    "  💡 Установи переменные окружения:\n"
+                    "      OLLAMA_MAX_VRAM=8192\n"
+                    "      HIP_VISIBLE_DEVICES=0,1\n"
+                    "      OLLAMA_NUM_PARALLEL=1\n"
+                    "      OLLAMA_MAX_LOADED_MODELS=2"
+                )
+            else:
+                lines.append("  ✅ VRAM распределён корректно.")
+        except FileNotFoundError:
+            lines.append("  ℹ️ ollama не найден в PATH — пропуск проверки.")
+        except Exception as e:
+            lines.append(f"  ⚠️ ollama ps: {e}")
+
+        # GPU-метрики
+        gpus = self.get_gpu_metrics()
+        if gpus:
+            lines.append("  GPU:")
+            for g in gpus:
+                bar = "█" * int(g["used_pct"] / 10)
+                lines.append(
+                    f"    [{g['id']}] {g['used_mb']}/{g['total_mb']} MB "
+                    f"({g['used_pct']}%) {bar} [{g['backend']}]"
+                )
+        else:
+            lines.append("  GPU: данные недоступны (rocm-smi / nvidia-smi не найдены)")
+
+        return "\n".join(lines)
+
 
 SensorBridge = ArgosSensorBridge
 
