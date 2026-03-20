@@ -10,6 +10,10 @@ import threading
 import uuid
 from typing import Optional
 
+from src.argos_logger import get_logger
+
+log = get_logger("argos.browser_conduit")
+
 # ── РУКОПОЖАТИЕ ───────────────────────────────────────────
 HANDSHAKE_TEMPLATE = (
     "[ARGOS_HANDSHAKE_V2.1]\n"
@@ -42,9 +46,11 @@ class BrowserConduit:
 
     def __init__(
         self,
+        core=None,
         quantum_state: str = "Analytic",
         nodes_count: int = 0,
     ) -> None:
+        self.core = core
         self.quantum_state = quantum_state
         self.nodes_count = nodes_count
         self._lock = threading.Lock()
@@ -99,3 +105,76 @@ class BrowserConduit:
         with self._lock:
             self.quantum_state = quantum_state
             self.nodes_count = nodes_count
+
+    # ── БРАУЗЕРНАЯ АВТОМАТИЗАЦИЯ ──────────────────────────────────────────
+
+    def ask_external_ai(self, prompt: str) -> None:
+        """
+        Передаёт запрос внешнему ИИ через браузер (Gemini/etc.).
+
+        Формирует сообщение с рукопожатием, копирует его в буфер обмена
+        и вставляет в активное поле браузера через Ctrl+V, Enter.
+        Одновременно запускает фоновый listener, ожидающий тег [ARGOS_PATCH].
+
+        .. note::
+            Требует установленных пакетов ``pyautogui`` и ``pyperclip``
+            (см. requirements-optional.txt).
+            Перед вызовом метода пользователь должен кликнуть в поле ввода браузера
+            — у него есть 5 секунд.
+        """
+        import time
+
+        session_id  = self.new_session()
+        full_prompt = self.prepare_message(prompt, session_id)
+
+        try:
+            import pyperclip
+            import pyautogui
+        except ImportError as exc:
+            log.error("[BrowserConduit] ask_external_ai: зависимость недоступна: %s", exc)
+            return
+
+        log.info("[BrowserConduit] Отправка запроса внешнему ИИ. Ожидание клика (5 с)…")
+        time.sleep(5)
+
+        pyperclip.copy(full_prompt)
+        pyautogui.hotkey("ctrl", "v")
+        pyautogui.press("enter")
+
+        self._start_listening()
+
+    def _start_listening(self) -> None:
+        """
+        Запускает фоновый поток, отслеживающий появление тега ``[ARGOS_PATCH]``
+        в буфере обмена.
+
+        Когда тег обнаружен, содержимое буфера передаётся в
+        ``core.self_healing.apply_patch()``.
+        """
+        import time
+
+        try:
+            import pyperclip
+        except ImportError as exc:
+            log.error("[BrowserConduit] _start_listening: pyperclip недоступен: %s", exc)
+            return
+
+        def _monitor() -> None:
+            try:
+                last_clip = pyperclip.paste()
+                while True:
+                    current = pyperclip.paste()
+                    if current != last_clip and "[ARGOS_PATCH]" in current:
+                        log.info("[BrowserConduit] Получена правка от внешнего ИИ.")
+                        if self.core and hasattr(self.core, "self_healing"):
+                            try:
+                                self.core.self_healing.apply_patch(current)
+                            except Exception as exc:
+                                log.error("[BrowserConduit] apply_patch: %s", exc)
+                        break
+                    last_clip = current
+                    time.sleep(2)
+            except Exception as exc:
+                log.error("[BrowserConduit] _monitor error: %s", exc)
+
+        threading.Thread(target=_monitor, daemon=True).start()

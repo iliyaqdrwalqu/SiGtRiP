@@ -36,6 +36,71 @@ class LazarusProtocol:
         self.backup_path = _SHARD_PATH
         self._lock       = threading.Lock()
 
+    def create_soul_mirror(self) -> str:
+        """
+        Создаёт краткий дамп памяти и пушит его в GitHub Gist («Зеркало Души»).
+
+        Требует переменной окружения ``GIST_TOKEN``.
+        Идентификатор Gist берётся из ``ARGOS_GIST_ID``
+        (по умолчанию — значение из README).
+        """
+        import sqlite3
+        import requests as _requests
+
+        gist_id = os.getenv("ARGOS_GIST_ID", "8e9cf57e043c7a6111f277828f363b01")
+        token   = os.getenv("GIST_TOKEN", "")
+        if not token:
+            msg = "⚠️ [Lazarus] GIST_TOKEN не задан — create_soul_mirror пропущен."
+            log.warning(msg)
+            return msg
+
+        # Собираем последние инсайты из памяти
+        insights: list[str] = []
+        try:
+            conn   = sqlite3.connect("data/memory.db")
+            cursor = conn.cursor()
+            cursor.execute("SELECT data FROM facts ORDER BY id DESC LIMIT 100")
+            insights = [row[0] for row in cursor.fetchall()]
+            conn.close()
+        except Exception as e:
+            log.debug("[Lazarus] create_soul_mirror: не удалось прочитать БД: %s", e)
+
+        payload = {
+            "description": "ARGOS Soul Mirror (Auto-Backup)",
+            "files": {
+                "argos_memory_shard.json": {
+                    "content": json.dumps(
+                        {
+                            "version":   "2.1",
+                            "timestamp": datetime.utcnow().isoformat(),
+                            "insights":  insights,
+                        },
+                        indent=2,
+                        ensure_ascii=False,
+                    )
+                }
+            },
+        }
+
+        headers = {"Authorization": f"token {token}"}
+        try:
+            res = _requests.patch(
+                f"https://api.github.com/gists/{gist_id}",
+                json=payload,
+                headers=headers,
+                timeout=15,
+            )
+            if res.status_code == 200:
+                log.info("[Lazarus] Зеркало души обновлено в Gist.")
+                return "🧬 [Lazarus] Зеркало души обновлено в Gist."
+            msg = f"⚠️ [Lazarus] Ошибка бэкапа в Gist: HTTP {res.status_code}"
+            log.warning(msg)
+            return msg
+        except Exception as e:
+            msg = f"❌ [Lazarus] create_soul_mirror failed: {e}"
+            log.error(msg)
+            return msg
+
     # ── СОЗДАНИЕ ОСКОЛКА ────────────────────────────────────────────────────
 
     def create_soul_shard(self) -> str:
