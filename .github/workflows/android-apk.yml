@@ -1,10 +1,18 @@
-name: 🤖 Android APK — build (debug)
+name: 🤖 Build ARGOS Full APK (debug)
 
 on:
   pull_request:
     branches: [main]
+    paths:
+      - 'main_argos_local.py'
+      - 'buildozer_local.spec'
+      - 'src/**'
   push:
     branches: [main]
+    paths:
+      - 'main_argos_local.py'
+      - 'buildozer_local.spec'
+      - 'src/**'
   workflow_dispatch:
 
 env:
@@ -97,7 +105,7 @@ jobs:
   # Depends on both lint jobs; builds after code quality gates pass.
   # ───────────────────────────────────────────────────────────────────────────
   build-apk:
-    name: Build Android APK (debug)
+    name: Build Full ARGOS APK (debug)
     runs-on: ubuntu-22.04
     needs: [lint-python, lint-cython]
     permissions:
@@ -134,29 +142,29 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ~/.buildozer
-          key: buildozer-home-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
-          restore-keys: buildozer-home-${{ runner.os }}-
+          key: buildozer-home-full-${{ runner.os }}-${{ hashFiles('buildozer_local.spec') }}
+          restore-keys: buildozer-home-full-${{ runner.os }}-
 
       - name: Cache .buildozer (local build cache)
         uses: actions/cache@v5
         with:
           path: .buildozer
-          key: buildozer-local-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
-          restore-keys: buildozer-local-${{ runner.os }}-
+          key: buildozer-local-full-${{ runner.os }}-${{ hashFiles('buildozer_local.spec') }}
+          restore-keys: buildozer-local-full-${{ runner.os }}-
 
       - name: Cache ~/.gradle
         uses: actions/cache@v5
         with:
           path: ~/.gradle
-          key: gradle-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
-          restore-keys: gradle-${{ runner.os }}-
+          key: gradle-full-${{ runner.os }}-${{ hashFiles('buildozer_local.spec') }}
+          restore-keys: gradle-full-${{ runner.os }}-
 
       - name: Cache ~/.cache/pip
         uses: actions/cache@v5
         with:
           path: ~/.cache/pip
-          key: pip-buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
-          restore-keys: pip-buildozer-${{ runner.os }}-
+          key: pip-buildozer-full-${{ runner.os }}-${{ hashFiles('buildozer_local.spec') }}
+          restore-keys: pip-buildozer-full-${{ runner.os }}-
 
       - name: Install Python build tools
         run: |
@@ -212,12 +220,14 @@ jobs:
             python setup_android_files.py
           fi
 
-      - name: Build APK (debug)
+      - name: Build Full ARGOS APK (debug)
         timeout-minutes: 45
         env:
           BUILDOZER_WARN_ON_ROOT: "0"
           # Force Cython to use Python 3 semantics for all compiled extensions.
           CYTHON_DEFAULT_LANGUAGE_LEVEL: "3"
+          # Use the full Argos spec (main_argos_local.py entry point)
+          BUILDOZER_SPEC_FILENAME: buildozer_local.spec
         run: |
           # Capture full output so we can grep for Cython errors on failure.
           buildozer android debug 2>&1 | tee /tmp/buildozer_output.txt
@@ -238,7 +248,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: argos-apk-debug-${{ github.run_number }}
+          name: argos-full-apk-debug-${{ github.run_number }}
           path: bin/*.apk
           if-no-files-found: warn
           retention-days: 30
