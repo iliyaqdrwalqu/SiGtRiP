@@ -1,0 +1,23 @@
+# This is a workflow file for Argoss
+
+name: Argos Report to Gist
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Publish to Gist
+        env:
+          GIST_ID: ${{ secrets.GIST_ID }}
+          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+        run: |
+          # code to publish to Gist
+          echo "Publishing to Gist..."

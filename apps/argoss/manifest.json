@@ -1,0 +1,15 @@
+{
+  "name": "weather",
+  "version": "2.0.0",
+  "entry": "skill.py",
+  "author": "Всеволод",
+  "description": "Навык weather",
+  "category": "sensors",
+  "tags": [
+    "sensors"
+  ],
+  "dependencies": [],
+  "permissions": [
+    "network"
+  ]
+}

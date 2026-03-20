@@ -1,0 +1,33 @@
+name: CI — Release Validation
+on:
+  push:
+    branches: [main, "release/*"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          pip install chardet pytest-cov
+          pip install -r requirements.txt --quiet || true
+      - name: Fix encoding
+        run: python3 fix_encoding.py
+      - name: Validate Python syntax
+        run: |
+          find . -name "*.py" -type f \
+            ! -path "*/venv/*" \
+            ! -path "*/__pycache__/*" \
+            ! -path "*/node_modules/*" \
+            -exec python3 -m py_compile {} +
+      - name: Validate project
+        run: python3 validate_project.py || true
+      - name: Run tests
+        run: pytest --cov=src --cov-fail-under=30 -q --tb=short

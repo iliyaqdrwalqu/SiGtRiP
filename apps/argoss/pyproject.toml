@@ -1,0 +1,96 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "argos-universalsigtrip"
+version = "2.0.0"
+description = "ARGOS Universal OS — автономная кроссплатформенная ИИ-система с квантовой логикой, P2P, IoT и промышленными протоколами"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "Vsevolod", email = "argos@sigtrip.dev" }]
+requires-python = ">=3.11"
+
+keywords = [
+    "ai", "agent", "iot", "autonomous", "p2p", "smart-home",
+    "industrial", "quantum", "modbus", "knx", "opcua", "telegram",
+    "argos", "universal-os"
+]
+
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Home Automation",
+    "Topic :: System :: Monitoring",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    "requests>=2.31.0",
+    "psutil>=6.0.0",
+    "python-dotenv>=1.0.1",
+    "aiohttp>=3.10.0",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "pydantic>=2.8.0",
+    "SQLAlchemy>=2.0.0",
+    "cryptography>=43.0.0",
+    "argon2-cffi>=23.1.0",
+]
+
+[project.optional-dependencies]
+voice = ["pyttsx3>=2.90", "SpeechRecognition>=3.10.0"]
+telegram = ["python-telegram-bot>=21.0"]
+kivy = ["kivy>=2.3.0", "plyer>=2.1.0"]
+iot = ["paho-mqtt>=2.1.0", "pymodbus>=3.7.0", "pyserial>=3.5"]
+ai-full = ["google-generativeai>=0.8.0", "openai>=1.50.0"]
+quantum = ["qiskit>=1.0.0", "qiskit-ibm-runtime>=0.28.0"]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=5.0.0",
+    "ruff>=0.6.0",
+    "mypy>=1.11.0",
+]
+all = [
+    "argos-universalsigtrip[voice,telegram,kivy,iot,ai-full]"
+]
+
+[project.scripts]
+argos = "main:main"
+
+[project.urls]
+Homepage = "https://github.com/iliyaqdrwalqu/Argoss"
+Repository = "https://github.com/iliyaqdrwalqu/Argoss"
+Changelog = "https://github.com/iliyaqdrwalqu/Argoss/blob/main/CHANGELOG.md"
+"Bug Tracker" = "https://github.com/iliyaqdrwalqu/Argoss/issues"
+Documentation = "https://github.com/iliyaqdrwalqu/Argoss/blob/main/docs/index.md"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*", "modules*"]
+
+[tool.setuptools.package-data]
+"*" = ["*.yaml", "*.yml", "*.json", "*.md", "*.txt"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+select = ["E", "F", "W", "I", "N"]
+ignore = ["E501", "N802", "N803", "N806"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-v --tb=short"
