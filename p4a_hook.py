@@ -41,6 +41,17 @@ def _patch_long_to_int(path: str) -> None:
         fh.write(patched)
     print(f"[p4a_hook] Patched 'long' -> 'int' in: {path}")
 
+def _patch_jni_jlong(path: str) -> None:
+    """Replace invalid ``ctypedef int int jlong`` definition with ``long``."""
+    with open(path, "r", encoding="utf-8") as fh:
+        src = fh.read()
+    patched = re.sub(r"ctypedef\s+int\s+int\s+jlong", "ctypedef long jlong", src)
+    if patched == src:
+        return
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(patched)
+    print(f"[p4a_hook] Patched jlong typedef in: {path}")
+
 
 # ---------------------------------------------------------------------------
 # p4a hook entry-points
@@ -82,6 +93,8 @@ def _fix_pyjnius(toolchain) -> None:
             os.path.join(root, "**", "jnius_utils.pxi"), recursive=True
         ):
             _patch_long_to_int(match)
+        for match in glob.glob(os.path.join(root, "**", "jni.pxi"), recursive=True):
+            _patch_jni_jlong(match)
 
 
 def _disable_android_incompatible_modules(toolchain) -> None:

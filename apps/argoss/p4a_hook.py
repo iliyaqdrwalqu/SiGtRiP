@@ -24,6 +24,19 @@ def fix_pyjnius(arch):
                 print("[p4a_hook] pyjnius: fixed long → int")
 
 
+def fix_jni_typedef(arch):
+    """Исправляет некорректный typedef jlong в jni.pxi (ctypedef int int jlong)."""
+    site_packages = arch.get_env_vars().get("PYTHONPATH", "")
+    for sp in site_packages.split(":"):
+        jni_pxi = Path(sp) / "jnius" / "jni.pxi"
+        if jni_pxi.exists():
+            content = jni_pxi.read_text(errors="replace")
+            patched = re.sub(r"ctypedef\s+int\s+int\s+jlong", "ctypedef long jlong", content)
+            if patched != content:
+                jni_pxi.write_text(patched)
+                print("[p4a_hook] pyjnius: fixed jlong typedef in jni.pxi")
+
+
 def disable_broken_modules(arch):
     """Отключает C-модули несовместимые с Android."""
     broken = ["grp", "_uuid", "_lzma"]
@@ -35,6 +48,16 @@ def disable_broken_modules(arch):
                 path.write_text(
                     f'''# {mod} disabled on Android\nraise ImportError("{mod} not available on Android")\n'''
                 )
+
+
+def _disable_android_incompatible_modules(toolchain):
+    incompatible = {"grp", "_uuid", "_lzma"}
+    try:
+        from pythonforandroid.recipes.python3 import Python3Recipe  # type: ignore[import]
+        existing = set(getattr(Python3Recipe, "disabled_modules", []))
+        Python3Recipe.disabled_modules = sorted(existing | incompatible)
+    except Exception as exc:
+        print(f"[p4a_hook] WARNING: could not set disabled_modules ({exc})")
 
 
 def add_file_provider(build_dir):
@@ -97,6 +120,7 @@ def add_file_paths_xml(dist_dir):
 
 def source_dirs(arch):
     fix_pyjnius(arch)
+    fix_jni_typedef(arch)
     disable_broken_modules(arch)
 
 
@@ -106,7 +130,9 @@ def before_apk_build(toolchain):
         arch_obj = getattr(toolchain, 'archs', [None])[0]
         if arch_obj:
             fix_pyjnius(arch_obj)
+            fix_jni_typedef(arch_obj)
             disable_broken_modules(arch_obj)
+        _disable_android_incompatible_modules(toolchain)
     except Exception as exc:
         print(f"[p4a_hook] before_apk_build warning: {exc}")
 
