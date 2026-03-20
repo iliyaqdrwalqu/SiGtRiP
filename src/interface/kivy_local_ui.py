@@ -498,8 +498,3 @@ else:
 
         def run(self):
             print("⚠️  Kivy not installed. Install kivy to run ArgosLocalApp.")
-# ── Optional managers ---------------------------------------------------------
-try:
-    from src.connectivity.wifi_sentinel import WiFiSentinel
-except Exception:
-    WiFiSentinel = None  # type: ignore
