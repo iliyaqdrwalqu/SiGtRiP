@@ -45,7 +45,7 @@ jobs:
 
       - name: Build package
         working-directory: ${{ github.workspace }}/..
-        run: python -m build --outdir ${{ github.event.repository.name }}/dist ${{ github.event.repository.name }}
+        run: python -m build ${{ github.event.repository.name }}
 
       - name: Publish to TestPyPI
         uses: pypa/gh-action-pypi-publish@release/v1
