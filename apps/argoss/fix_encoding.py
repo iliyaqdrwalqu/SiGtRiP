@@ -54,8 +54,8 @@ def fix_file_encoding(file_path):
         replacements = {
             '\x97': '—',  # Em dash
             '\x96': '–',  # En dash
-            '\x93': '"',  # Left double quote
-            '\x94': '"',  # Right double quote
+            '\x93': '\u201c',  # Left double quote
+            '\x94': '\u201d',  # Right double quote
             '\x91': '\u2018',  # Left single quote
             '\x92': '\u2019',  # Right single quote
             '\x85': '…',  # Ellipsis
