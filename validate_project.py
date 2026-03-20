@@ -198,9 +198,15 @@ class ProjectValidator:
                     print("⚠️  Есть незакоммиченные изменения:")
                     for line in changes.split('\n')[:5]:
                         print(f"   {line}")
+<<<<<<< copilot/fix-flake8-syntax-logic-errors
                     remaining = len(changes.split('\n')) - 5
                     if remaining > 0:
                         print(f"   ... и еще {remaining} файлов")
+=======
+                    if len(changes.split('\n')) > 5:
+                        n_extra = len(changes.split('\n')) - 5
+                        print(f"   ... и еще {n_extra} файлов")
+>>>>>>> main
                 else:
                     print("✅ Нет незакоммиченных изменений")
                 
