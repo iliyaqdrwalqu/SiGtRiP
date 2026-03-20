@@ -12,16 +12,16 @@ os.environ.setdefault("CYTHON_DEFAULT_LANGUAGE_LEVEL", "3")
 
 
 def fix_pyjnius(arch):
-    """Фикс pyjnius для Python 3 (убирает использование 'long')."""
+    """Фикс pyjnius для Python 3 (убирает использование 'long' как тип Python 2)."""
     site_packages = arch.get_env_vars().get("PYTHONPATH", "")
     for sp in site_packages.split(":"):
         jnius_src = Path(sp) / "jnius" / "jnius_utils.pxi"
         if jnius_src.exists():
             content = jnius_src.read_text(errors="replace")
-            if "long(" in content:
-                content = content.replace("long(", "int(")
-                jnius_src.write_text(content)
-                print("[p4a_hook] pyjnius: убрал long() → int()")
+            patched = re.sub(r"\blong\b", "int", content)
+            if patched != content:
+                jnius_src.write_text(patched)
+                print("[p4a_hook] pyjnius: fixed long → int")
 
 
 def disable_broken_modules(arch):
@@ -98,6 +98,17 @@ def add_file_paths_xml(dist_dir):
 def source_dirs(arch):
     fix_pyjnius(arch)
     disable_broken_modules(arch)
+
+
+def before_apk_build(toolchain):
+    """Called by p4a before APK assembly – extra safety-net to patch pyjnius."""
+    try:
+        arch_obj = getattr(toolchain, 'archs', [None])[0]
+        if arch_obj:
+            fix_pyjnius(arch_obj)
+            disable_broken_modules(arch_obj)
+    except Exception as exc:
+        print(f"[p4a_hook] before_apk_build warning: {exc}")
 
 
 def postbuild_arch(arch, api, **kwargs):

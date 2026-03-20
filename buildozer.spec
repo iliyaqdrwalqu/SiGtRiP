@@ -42,3 +42,8 @@ warn_on_root = 0
 # Hook script – patches pyjnius for Python 3 and disables Android-incompatible
 # Python stdlib C extensions (grp, _uuid, _lzma) before the build starts.
 p4a.hook = p4a_hook.py
+
+# Local recipes directory – contains a custom pyjnius recipe that replaces
+# the Python-2-only ``long`` built-in with ``int`` so Cython 3.x can compile
+# pyjnius without raising "undeclared name not builtin: long".
+p4a.local_recipes = p4a-recipes

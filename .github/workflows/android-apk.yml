@@ -77,6 +77,23 @@ jobs:
           pip install --upgrade pip
           pip install buildozer cython
 
+      - name: Patch cached pyjnius source (long → int for Python 3 / Cython 3)
+        run: |
+          python3 - <<'PYEOF'
+          import re
+          from pathlib import Path
+          for pxi in Path(".buildozer").rglob("jnius*.pxi"):
+              try:
+                  content = pxi.read_text(encoding="utf-8", errors="replace")
+                  patched = re.sub(r"\blong\b", "int", content)
+                  if patched != content:
+                      pxi.write_text(patched, encoding="utf-8")
+                      print(f"Patched: {pxi}")
+              except OSError as e:
+                  print(f"Could not patch {pxi}: {e}")
+          print("pyjnius cache patch done.")
+          PYEOF
+
       - name: Build APK (debug)
         timeout-minutes: 45
         env:
