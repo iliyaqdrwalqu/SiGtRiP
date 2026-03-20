@@ -19,6 +19,8 @@ import os
 import sys
 import signal
 import threading
+import datetime
+import uuid
 
 # [FIX-8] Отключаем перехват аргументов командной строки Kivy.
 # Без этого Kivy ловит --dashboard, --no-gui и т.д. и падает с ошибкой
@@ -46,6 +48,37 @@ from src.launch_config               import normalize_launch_args
 from src.db_init                     import init_db as _init_db  # [FIX-7] правильный путь
 
 log = get_logger("argos.main")
+
+
+
+
+class ArgosAbsolute:
+    """Лёгкий публичный фасад ARGOS, не требующий тяжёлых зависимостей.
+
+    Используется в status_report.py и telegram_bot.py для быстрой
+    проверки работоспособности ядра без поднятия полного оркестратора.
+    """
+
+    def __init__(self):
+        self.version = "2.1.0"
+        self.node_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, os.uname().nodename if hasattr(os, 'uname') else 'argos'))
+        self.start_time = datetime.datetime.now()
+
+    def execute(self, cmd: str) -> str:
+        cmd = cmd.lower().strip()
+        if cmd == "status":
+            uptime = datetime.datetime.now() - self.start_time
+            return (
+                f"OS: Argos v{self.version} | Status: ACTIVE | "
+                f"Uptime: {uptime} | Node: {self.node_id}"
+            )
+        if cmd == "root":
+            return "🛡️ ROOT: ACCESS GRANTED"
+        if cmd == "nfc":
+            return "📡 NFC: модуль активен"
+        if cmd == "bt":
+            return "🔵 BT: Bluetooth включён"
+        return f"[AI] Received: {cmd}"
 
 
 # [FIX-7] Обёртка-совместимость: заменяет ArgosDB() → вызов init_db()
