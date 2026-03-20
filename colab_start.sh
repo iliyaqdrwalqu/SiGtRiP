@@ -105,9 +105,15 @@ for r,d,f in os.walk('.'):
     d[:] = [x for x in d if x not in ['.git','__pycache__','.buildozer']]
     files += [os.path.join(r,ff) for ff in f]
 py = [f for f in files if f.endswith('.py')]
+EXPECTED_PY_FILES = 83
+status = (
+    "OK (83+)"
+    if len(py) >= EXPECTED_PY_FILES
+    else f"{len(py)} (ожидается {EXPECTED_PY_FILES}+)"
+)
 print(f'  Файлов всего: {len(files)}')
 print(f'  Python: {len(py)}')
-print(f'  Целостность: {"OK (83+)" if len(py)>=83 else str(len(py))+" (ожидается 83+)"}')
+print(f'  Целостность: {status}')
 "
 
 echo ""
