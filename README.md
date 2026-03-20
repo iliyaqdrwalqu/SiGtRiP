@@ -1056,7 +1056,7 @@ pip install argos-universalsigtrip
    - Owner: `iliyaqdrwalqu`
    - Repository: `SiGtRiP`
    - Workflow file path: `.github/workflows/publish_testpypi.yml`
-   - Environment name: *(оставить пустым)*
+   - Environment name: `testpypi`
 3. Запустить workflow вручную: **Actions → 📦 Publish to TestPyPI → Run workflow**
 
 #### PyPI (production)
@@ -1097,7 +1097,8 @@ ArgosKivyApp · ArgosWebEngine · MasterAuth · SensorBridge · SmarthomeOverrid
 3. Заполните:
    - **Owner**: `iliyaqdrwalqu`
    - **Repository**: `SiGtRiP`
-   - **Workflow file name**: `publish_testpypi.yml`
+   - **Workflow file path**: `.github/workflows/publish_testpypi.yml`
+   - **Environment name**: `testpypi`
 4. Сохраните.
 
 ### Запуск публикации
