@@ -371,7 +371,6 @@ def mesh_start(node_id: str = "ARGOS_MESH", port: int = 5000, light_mode: bool =
 
 
 def mesh_stop() -> str:
-    global _active_node
     if not _active_node or not _active_node.running:
         return "🌐 MESH: узел не запущен"
     _active_node.stop()
@@ -379,7 +378,6 @@ def mesh_stop() -> str:
 
 
 def mesh_status() -> str:
-    global _active_node
     if not _active_node:
         return "🌐 MESH: узел не создан. Команда: mesh start"
     import json as _json

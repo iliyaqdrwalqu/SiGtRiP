@@ -52,7 +52,7 @@ class MeshNetwork:
 
     def __init__(self):
         self.devices: dict[str, MeshDevice] = {}
-        self._bridges: dict[str, "ProtocolBridge"] = {}
+        self._bridges: dict[str, Any] = {}
         self._running = False
         self._load_devices()
 

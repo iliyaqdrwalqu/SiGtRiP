@@ -464,14 +464,12 @@ def colibri_start(
 
 
 def colibri_stop() -> str:
-    global _daemon
     if not _daemon:
         return "🐦 COLIBRI: демон не создан"
     return _daemon.stop()
 
 
 def colibri_status() -> str:
-    global _daemon
     if not _daemon:
         return "🐦 COLIBRI: демон не создан. Команда: colibri start"
     return _daemon.status_str()

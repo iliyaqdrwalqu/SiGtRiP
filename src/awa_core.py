@@ -184,7 +184,7 @@ class AWACore:
             except Exception as e:
                 log.error("AWA on_critical_error git_ops rollback: %s", e)
 
-
+    def register(self, name, ref, *, priority=50, category="general", capabilities=None):
         desc = ModuleDescriptor(name, ref, priority, category, capabilities)
         with self._lock:
             self._modules[name] = desc
