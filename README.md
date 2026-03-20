@@ -1,5 +1,6 @@
 # 👁️ ARGOS UNIVERSAL OS (v2.1)
 [![🏗️ Build ARGOS APK](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/build_apk.yml/badge.svg)](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/build_apk.yml)
+[![Argos Report to Gist](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/argos_report_to_gist.yml/badge.svg)](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/argos_report_to_gist.yml)
 [![🚀 ARGOS Release — Сборка и публикация релиза](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/release.yml/badge.svg)](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/release.yml)
 [![📊 ARGOS Status Report](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/status_report.yml/badge.svg)](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/status_report.yml)
 [![🤖 Argos Auto-Publish Skills to PyPI](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/argos_evolution_publish.yml/badge.svg)](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/argos_evolution_publish.yml)
