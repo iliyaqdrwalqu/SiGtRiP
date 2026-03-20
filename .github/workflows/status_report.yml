@@ -53,6 +53,14 @@ jobs:
           # Устанавливаем только то, что нужно для отчёта
           pip install --quiet pyyaml
 
+      - name: Install buildozer (optional tool check)
+        run: pip install --quiet buildozer
+
+      - name: Install adb (optional tool check)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends android-tools-adb
+
       - name: Install project dependencies (best-effort)
         run: |
           pip install --quiet -r requirements.txt || true
