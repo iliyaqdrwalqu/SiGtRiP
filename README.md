@@ -918,7 +918,7 @@ pyinstaller argos.spec
 ```bash
 # 1. Установить зависимости (Linux/macOS/WSL2)
 sudo apt-get install -y openjdk-17-jdk build-essential git zip unzip
-pip install buildozer cython
+pip install buildozer cython==0.29.36 "pyjnius>=1.6.1"
 
 # 2. Debug APK (быстро, ~30 мин первый раз)
 buildozer android debug
@@ -929,6 +929,29 @@ buildozer android release
 # APK появится в папке bin/
 ls bin/*.apk
 ```
+
+### Кастомные патчи pyjnius
+
+Проект использует кастомные патчи pyjnius для совместимости с Python 3 / Cython 3.
+Патчи применяются автоматически через `p4a_hook.py` и `p4a-recipes/pyjnius/`.
+
+**⚠️ Важно:** патч использует sentinel-стратегию для замены `long` → `int`:
+1. Защищает `long long` (тип C в Cython-кастах `<long long>`) временным маркером
+2. Заменяет оставшийся `long` (тип Python 2) на `int`
+3. Восстанавливает `long long`
+
+Это предотвращает ошибку Cython **"Declarator should be empty"**, которая возникает,
+если `long long` ошибочно заменяется на `int int`.
+
+Подробнее о каждой попытке исправления — в [CHANGELOG.md](CHANGELOG.md).
+
+### Анализ ошибок CI (build log)
+
+Полный лог сборки сохраняется как CI artifact `buildozer-build-log-<run_number>`:
+1. Откройте [Actions → Build ARGOS Full APK](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/android-apk.yml)
+2. Выберите нужный run
+3. В разделе **Artifacts** скачайте `buildozer-build-log-<N>`
+4. Откройте `buildozer_output.txt` и найдите строки `Error` / `Declarator` / `undeclared`
 
 ### Через Docker
 
@@ -944,7 +967,7 @@ docker-compose --profile apk run apk_builder
 
 ### GitHub Actions (автоматическая сборка)
 
-Рабочий процесс [build_apk.yml](.github/workflows/build_apk.yml) запускается при пуше в `main` и загружает APK как артефакт CI.
+Рабочий процесс [android-apk.yml](.github/workflows/android-apk.yml) запускается при пуше в `main` и загружает APK как артефакт CI.
 
 ---
 

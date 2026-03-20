@@ -25,3 +25,9 @@ dependencies = { file = ["requirements.txt"] }
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["src*"]
+
+[tool.cython]
+# Force Cython to use Python 3 semantics for all .pyx/.pxi files compiled
+# from this project root.  Without this, Cython defaults to language_level=2
+# and produces Python 2 / Python 3 semantic mismatches.
+language_level = "3"

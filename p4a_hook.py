@@ -27,19 +27,25 @@ os.environ.setdefault("CYTHON_DEFAULT_LANGUAGE_LEVEL", "3")
 # ---------------------------------------------------------------------------
 
 def _patch_long_to_int(path: str) -> None:
-    """Replace all word-boundary occurrences of ``long`` with ``int`` in *path*.
+    """Replace Python-2-only standalone ``long`` with ``int`` in *path*.
 
-    This covers both function-call style (``long(x)``) and type-reference style
-    (``isinstance(x, long)``) that pyjnius uses for Python 2 compatibility.
+    Uses a sentinel to protect ``long long`` (a valid C type used in Cython
+    casts like ``<long long>``) so it is never changed to ``int int``, which
+    Cython rejects with "Declarator should be empty".
     """
+    _SENTINEL = "\x00LONGLONG\x00"
     with open(path, "r", encoding="utf-8") as fh:
         src = fh.read()
-    patched = re.sub(r"\blong\b", "int", src)
+    # Protect 'long long' C type from the broad word-boundary replacement.
+    guarded = src.replace("long long", _SENTINEL)
+    patched = re.sub(r"\blong\b", "int", guarded)
+    # Restore 'long long'.
+    patched = patched.replace(_SENTINEL, "long long")
     if patched == src:
         return
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(patched)
-    print(f"[p4a_hook] Patched 'long' -> 'int' in: {path}")
+    print(f"[p4a_hook] Patched 'long' -> 'int' (safe) in: {path}")
 
 def _patch_jni_jlong(path: str) -> None:
     """Replace invalid ``ctypedef int int jlong`` definition with ``long``."""
