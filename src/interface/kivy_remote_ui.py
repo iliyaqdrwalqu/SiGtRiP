@@ -52,6 +52,10 @@ _GRAY = (0.5, 0.6, 0.7, 1)
 
 _DEFAULT_URL   = "http://localhost:8080"
 _POLL_INTERVAL = 5  # seconds
+_INPUT_WIDTH = 0.55
+_SEND_WIDTH  = 0.20
+_MIC_WIDTH   = 0.125
+_TTS_WIDTH   = 0.125
 
 
 def _do_request(method: str, url: str, token: str, **kwargs):
@@ -307,17 +311,17 @@ if KIVY_OK:
             inp_row = BoxLayout(size_hint_y=None, height=44, spacing=8)
             self._cmd_input = TextInput(
                 hint_text="Введите команду...", multiline=False,
-                background_color=_CARD, size_hint_x=0.55,
+                background_color=_CARD, size_hint_x=_INPUT_WIDTH,
             )
             self._cmd_input.bind(on_text_validate=self._send)
-            btn = Button(text="▶ Выполнить", size_hint_x=0.2,
+            btn = Button(text="▶ Выполнить", size_hint_x=_SEND_WIDTH,
                          background_color=(0.1, 0.4, 0.8, 1))
             btn.bind(on_press=self._send)
-            mic_btn = Button(text="🎙 Ввод", size_hint_x=0.125,
+            mic_btn = Button(text="🎙 Ввод", size_hint_x=_MIC_WIDTH,
                              background_color=(0.08, 0.42, 0.22, 1))
             mic_btn.bind(on_press=self._start_voice)
             self._mic_btn = mic_btn
-            tts_btn = Button(text="🔊 TTS: ON", size_hint_x=0.125,
+            tts_btn = Button(text="🔊 TTS: ON", size_hint_x=_TTS_WIDTH,
                              background_color=(0.12, 0.24, 0.44, 1))
             tts_btn.bind(on_press=self._toggle_tts)
             self._tts_btn = tts_btn

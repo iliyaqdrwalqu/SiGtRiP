@@ -49,6 +49,7 @@ except Exception:
 
 
 IS_ANDROID = "ANDROID_ARGUMENT" in os.environ or "ANDROID_ROOT" in os.environ
+DEFAULT_ENERGY_THRESHOLD = 300
 
 
 if JNIUS_OK:
@@ -144,7 +145,7 @@ class VoiceManager:
         self._last_error: Optional[str] = None
         self._sr_recognizer = _sr.Recognizer() if SR_OK else None
         if self._sr_recognizer:
-            self._sr_recognizer.energy_threshold = 300
+            self._sr_recognizer.energy_threshold = DEFAULT_ENERGY_THRESHOLD
 
     # ── TTS ------------------------------------------------------------------
     def _init_tts_backend(self) -> str:
@@ -255,6 +256,8 @@ class VoiceManager:
     def _listen_speech_recognition(self, timeout: float, phrase_limit: float) -> str:
         """STT через speech_recognition (Google Speech API)."""
         recognizer = self._sr_recognizer or _sr.Recognizer()
+        if not self._sr_recognizer:
+            recognizer.energy_threshold = DEFAULT_ENERGY_THRESHOLD
         try:
             with _sr.Microphone() as source:
                 recognizer.adjust_for_ambient_noise(source, duration=0.3)

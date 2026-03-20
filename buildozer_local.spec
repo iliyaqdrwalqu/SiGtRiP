@@ -15,7 +15,7 @@ source.include_patterns = assets/*,config/*,res/*
 source.exclude_patterns = tests/*,*/tests/*,*_test.py,*_tests.py,test_*.py
 
 # Requirements (Kivy + Android-compatible deps only)
-requirements = python3==3.11.0,kivy==2.3.0,requests,pyjnius==1.6.1,android,paho-mqtt,python-dotenv,plyer
+requirements = python3==3.11.0, kivy==2.3.0, requests, pyjnius==1.6.1, android, paho-mqtt, python-dotenv, plyer
 
 # Orientation
 orientation = portrait

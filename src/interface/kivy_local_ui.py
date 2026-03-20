@@ -13,6 +13,7 @@ kivy_local_ui.py — ARGOS Standalone Local APK UI.
 from __future__ import annotations
 
 import os
+import shlex
 import subprocess
 import threading
 from typing import Optional
@@ -87,6 +88,8 @@ try:
 except Exception:
     filechooser = None  # type: ignore
     PLYER_FC_OK = False
+
+MAX_CMD_OUTPUT = 1200
 
 
 if KIVY_OK:
@@ -293,12 +296,15 @@ if KIVY_OK:
             self._inp.text = ""
             self._append(f"> {cmd}", S.GRAY)
             try:
-                out = subprocess.check_output(cmd, shell=True, text=True, stderr=subprocess.STDOUT, timeout=20)
+                args = shlex.split(cmd)
+                if not args:
+                    return
+                out = subprocess.check_output(args, shell=False, text=True, stderr=subprocess.STDOUT, timeout=20)
             except subprocess.CalledProcessError as exc:
                 out = exc.output or str(exc)
             except Exception as exc:
                 out = str(exc)
-            self._append(out.strip()[:1200])
+            self._append(out.strip()[:MAX_CMD_OUTPUT])
 
         @_async
         def _start_colibri(self):
@@ -492,3 +498,8 @@ else:
 
         def run(self):
             print("⚠️  Kivy not installed. Install kivy to run ArgosLocalApp.")
+# ── Optional managers ---------------------------------------------------------
+try:
+    from src.connectivity.wifi_sentinel import WiFiSentinel
+except Exception:
+    WiFiSentinel = None  # type: ignore
