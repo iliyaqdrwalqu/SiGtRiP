@@ -43,11 +43,10 @@ class PyjniusRecipe(_PyjniusBase):
                         changes.append('long→int')
                     if patched_jlong != patched:
                         changes.append('jlong typedef')
-                    change_label = ' & '.join(changes) or 'patch'
+                    change_label = ' & '.join(changes)
                     print(f"[custom pyjnius] Fixed {change_label} in {pxi_file.name}")
             except OSError as exc:
                 print(f"[custom pyjnius] Could not patch {pxi_file}: {exc}")
 
 
 recipe = PyjniusRecipe()
-
