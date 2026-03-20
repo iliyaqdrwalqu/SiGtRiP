@@ -66,12 +66,12 @@ if JNIUS_OK:
         __javainterfaces__ = ["android/speech/RecognitionListener"]
         __javacontext__ = "app"
 
-        def __init__(self, recognizer_intent):
-            super().__init__()
-            self.text: Optional[str] = None
-            self.error: Optional[str] = None
-            self._event = threading.Event()
-            self._intent = recognizer_intent
+    def __init__(self, intent_class):
+        super().__init__()
+        self.text: Optional[str] = None
+        self.error: Optional[str] = None
+        self._event = threading.Event()
+        self._intent = intent_class
 
         # Все методы интерфейса (большинство — заглушки)
         @java_method("(Landroid/os/Bundle;)V")
@@ -261,7 +261,10 @@ class VoiceManager:
             return ""
 
     def _listen_speech_recognition(self, timeout: float, phrase_limit: float) -> str:
-        """STT через speech_recognition (Google Speech API)."""
+        """
+        STT через speech_recognition (Google Speech API).
+        phrase_limit — максимальная длительность фразы в секундах.
+        """
         recognizer = self._sr_recognizer or _sr.Recognizer()
         if not self._sr_recognizer:
             recognizer.energy_threshold = DEFAULT_ENERGY_THRESHOLD

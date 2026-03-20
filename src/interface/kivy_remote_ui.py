@@ -57,6 +57,7 @@ _INPUT_WIDTH = 0.55
 _SEND_WIDTH  = 0.20
 _MIC_WIDTH   = 0.125
 _TTS_WIDTH   = 0.125
+assert abs((_INPUT_WIDTH + _SEND_WIDTH + _MIC_WIDTH + _TTS_WIDTH) - 1.0) < 1e-6
 
 
 def _do_request(method: str, url: str, token: str, **kwargs):
@@ -292,9 +293,9 @@ if KIVY_OK:
             super().__init__(orientation="vertical", padding=16, spacing=8, **kwargs)
             self._settings = settings
             self._history  = []
-            self._voice: VoiceManager | None = None
-            self._tts_enabled = True
-            self._listening = False
+            self._voice: VoiceManager | None = None  # VoiceManager instance for TTS/STT
+            self._tts_enabled = True                 # TTS toggle state
+            self._listening = False                  # Voice input is running
 
             self.add_widget(Label(text="[b]Консоль команд[/b]", markup=True,
                                   color=_CYAN, size_hint_y=None, height=36))

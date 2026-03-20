@@ -89,8 +89,8 @@ except Exception:
     filechooser = None  # type: ignore
     PLYER_FC_OK = False
 
-MAX_CMD_OUTPUT = 1200
-# Limit command output displayed in UI to avoid giant scrollable logs
+MAX_TERMINAL_OUTPUT_CHARS = 1200  # Limit command output displayed in UI to avoid giant logs
+CMD_TIMEOUT_SECONDS = 20  # Timeout for local shell commands
 
 
 if KIVY_OK:
@@ -300,23 +300,26 @@ if KIVY_OK:
                 args = shlex.split(cmd)
                 if not args:
                     return
-                out = subprocess.check_output(args, shell=False, text=True, stderr=subprocess.STDOUT, timeout=20)
+                out = subprocess.check_output(
+                    args, shell=False, text=True, stderr=subprocess.STDOUT, timeout=CMD_TIMEOUT_SECONDS
+                )
             except subprocess.CalledProcessError as exc:
                 out = exc.output or str(exc)
             except Exception as exc:
                 out = str(exc)
-            self._append(out.strip()[:MAX_CMD_OUTPUT])
+            self._append(out.strip()[:MAX_TERMINAL_OUTPUT_CHARS])
 
         @_async
         def _start_colibri(self):
             if ColibriDaemon is None:
                 self._append("⚠️ Colibri недоступен.", S.GRAY)
                 return
-            try:
-                work_dir = os.path.join(App.get_running_app().user_data_dir, "colibri")  # type: ignore[attr-defined]
-            except Exception as exc:
+            app = App.get_running_app() if hasattr(App, "get_running_app") else None
+            if app and getattr(app, "user_data_dir", None):
+                work_dir = os.path.join(app.user_data_dir, "colibri")
+            else:
                 work_dir = os.path.join(os.getcwd(), "colibri")
-                self._append(f"ℹ️ user_data_dir недоступен: {exc}", S.GRAY)
+                self._append("ℹ️ user_data_dir недоступен, использую рабочий каталог.", S.GRAY)
             os.makedirs(work_dir, exist_ok=True)
             if not self._colibri:
                 self._colibri = ColibriDaemon(work_dir=work_dir, light_mode=True)
