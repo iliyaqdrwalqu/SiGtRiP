@@ -6,7 +6,7 @@
 [![Android APK](https://github.com/iliyaqdrwalqu/Argoss/actions/workflows/android-apk.yml/badge.svg)](https://github.com/iliyaqdrwalqu/Argoss/actions/workflows/android-apk.yml)
 [![🖥️ Windows .exe](https://github.com/iliyaqdrwalqu/Argoss/actions/workflows/build_windows.yml/badge.svg)](https://github.com/iliyaqdrwalqu/Argoss/actions/workflows/build_windows.yml)
 [![PyPI](https://img.shields.io/pypi/v/argos-universalsigtrip?color=blue&label=PyPI)](https://pypi.org/project/argos-universalsigtrip/)
-[![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://python.org)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://python.org)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iliyaqdrwalqu/Argoss/blob/main/colab/ARGOS_Colab_Launch.ipynb)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/status-production%20stable-brightgreen)](https://github.com/iliyaqdrwalqu/Argoss/releases/latest)

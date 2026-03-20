@@ -501,7 +501,7 @@ echo "🚀 Деплой Аргоса..."
 apt-get update -q && apt-get upgrade -y -q
 
 # 2. Python и зависимости
-apt-get install -y python3.11 python3-pip git screen -q
+apt-get install -y python3.10 python3-pip git screen -q
 
 # 3. Клонирование репозитория
 if [ ! -d "/opt/argos" ]; then

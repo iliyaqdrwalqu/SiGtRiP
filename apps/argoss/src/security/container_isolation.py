@@ -32,7 +32,7 @@ def _detect_runtime() -> ContainerRuntime:
 
 
 class ContainerIsolation:
-    IMAGE = "python:3.11-slim"
+    IMAGE = "python:3.10-slim"
     PREFIX = "argos_module_"
 
     def __init__(self):

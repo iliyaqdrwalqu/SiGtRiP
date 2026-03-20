@@ -16,7 +16,7 @@ cd /d "%~dp0"
 python --version > nul 2>&1
 if errorlevel 1 (
     echo [!] Python не найден. Скачиваю...
-    powershell -Command "Invoke-WebRequest -Uri https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe -OutFile python_setup.exe"
+    powershell -Command "Invoke-WebRequest -Uri https://www.python.org/ftp/python/3.10.11/python-3.10.11-amd64.exe -OutFile python_setup.exe"
     start /wait python_setup.exe /quiet InstallAllUsers=1 PrependPath=1
     del python_setup.exe
     echo [+] Python установлен.
