@@ -1782,6 +1782,8 @@ class ArgosCore:
                 return f"❌ {e}"
 
         if any(k in t for k in ["создай копию", "репликация"]):
+            if getattr(self, "awa", None) and getattr(self.awa, "lazarus", None):
+                self.awa.lazarus.spread_to_nodes()
             return self.replicator.create_replica()
         if "сканируй порты" in t:
             return f"Порты: {flasher.scan_ports()}"
