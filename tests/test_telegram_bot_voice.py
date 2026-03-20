@@ -31,6 +31,7 @@ def _import_bot_module():
 
     aiogram_mod.Bot = _Bot
     aiogram_mod.Dispatcher = _Dispatcher
+    aiogram_mod.F = types.SimpleNamespace(document=object(), text=object(), voice=object())
     sys.modules["aiogram"] = aiogram_mod
 
     aiogram_filters = types.ModuleType("aiogram.filters")

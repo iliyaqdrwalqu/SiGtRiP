@@ -6,7 +6,7 @@ import aiosqlite
 import sys
 from datetime import datetime
 
-from aiogram import Bot, Dispatcher
+from aiogram import Bot, Dispatcher, F
 from aiogram.filters import Command
 from aiogram.types import BufferedInputFile, Message
 from dotenv import load_dotenv
@@ -39,6 +39,10 @@ GPT_CONTEXT_LIMIT = 80
 MAX_STORED_MESSAGES_PER_CHAT = 500
 # ISO datetime format "YYYY-MM-DD HH:MM:SS" is 19 characters
 DATETIME_DISPLAY_LENGTH = 19
+# Maximum file size (bytes) that will be downloaded and read
+MAX_FILE_READ_BYTES = 10 * 1024 * 1024  # 10 MB
+# Maximum characters shown from a file's text content in the reply
+MAX_FILE_DISPLAY_CHARS = 3000
 
 # Set of chat IDs that have voice output enabled
 _voice_chats: set[int] = set()
@@ -74,6 +78,28 @@ def _tts_to_bytes(text: str, lang: str = "ru") -> bytes | None:
     except Exception as exc:
         log.warning("TTS synthesis failed: %s", exc)
         return None
+
+def _read_file_content(raw: bytes, file_name: str) -> str:
+    """Decode *raw* bytes as text and return a human-readable string.
+
+    Null bytes are used as a reliable indicator of binary (non-text) content.
+    For text files, UTF-8 is attempted first, with latin-1 as a fallback for
+    legacy encodings.  Long text is truncated to ``MAX_FILE_DISPLAY_CHARS``
+    characters.
+    """
+    if b"\x00" in raw:
+        return f"🔒 Файл содержит бинарные данные ({len(raw)} байт)."
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        text = raw.decode("latin-1")
+    if len(text) > MAX_FILE_DISPLAY_CHARS:
+        text = (
+            text[:MAX_FILE_DISPLAY_CHARS]
+            + f"\n\n... (показано {MAX_FILE_DISPLAY_CHARS} из {len(text)} символов)"
+        )
+    return f"📄 Содержимое файла:\n{text}"
+
 
 # ====================== SQLite ======================
 DB_NAME = "chat_history.db"
@@ -168,7 +194,8 @@ async def cmd_start(message: Message):
         "/voice\\_off — отключить голосовые ответы 🔇\n"
         "/argos \\<команда\\> — выполнить команду ARGOS\n\n"
         "Команды ARGOS: nfc, bt, wifi, root, gps, status, build apk, "
-        "build firmware, model status, model update, 7z pack \\<путь\\>, help",
+        "build firmware, model status, model update, 7z pack \\<путь\\>, help\n\n"
+        "📎 Отправь любой файл — ARGOS прочитает его содержимое\\.",
         parse_mode="MarkdownV2",
     )
 
@@ -219,6 +246,41 @@ async def cmd_argos(message: Message):
     # Разбить длинный ответ на части (все части, без ограничения)
     for i in range(0, len(result), TELEGRAM_MAX_MESSAGE_LENGTH):
         await message.answer(result[i:i + TELEGRAM_MAX_MESSAGE_LENGTH])
+
+@dp.message(F.document)
+async def handle_document(message: Message):
+    """Принять файл от пользователя, прочитать его содержимое и отправить ответ."""
+    doc = message.document
+    file_name = doc.file_name or "неизвестный_файл"
+    file_size = doc.file_size or 0
+    mime_type = doc.mime_type or "application/octet-stream"
+
+    description = f"[ФАЙЛ: {file_name}, {file_size} байт, {mime_type}]"
+    await save_message(
+        chat_id=message.chat.id,
+        user_id=message.from_user.id,
+        username=message.from_user.username or "no_username",
+        full_name=message.from_user.full_name,
+        text=description,
+    )
+
+    if file_size > MAX_FILE_READ_BYTES:
+        await message.answer(
+            f"📎 Файл «{file_name}» получен ({file_size // 1024} КБ).\n"
+            f"⚠️ Файл слишком большой для чтения (лимит {MAX_FILE_READ_BYTES // 1024 // 1024} МБ)."
+        )
+        return
+
+    buf = io.BytesIO()
+    await bot.download(doc, destination=buf)
+    buf.seek(0)
+    raw = buf.read()
+
+    content = _read_file_content(raw, file_name)
+    header = f"📎 Файл: {file_name}\n📏 Размер: {file_size} байт\n📂 Тип: {mime_type}\n\n"
+    reply = header + content
+    for i in range(0, len(reply), TELEGRAM_MAX_MESSAGE_LENGTH):
+        await message.answer(reply[i:i + TELEGRAM_MAX_MESSAGE_LENGTH])
 
 @dp.message()
 async def all_messages(message: Message):
