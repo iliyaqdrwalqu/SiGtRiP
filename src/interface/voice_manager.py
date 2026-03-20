@@ -48,8 +48,13 @@ except Exception:
     SR_OK = False
 
 
-IS_ANDROID = "ANDROID_ARGUMENT" in os.environ or "ANDROID_ROOT" in os.environ
+IS_ANDROID = (
+    "ANDROID_ARGUMENT" in os.environ
+    or "ANDROID_ARGUMENTS" in os.environ
+    or "ANDROID_ROOT" in os.environ
+)
 DEFAULT_ENERGY_THRESHOLD = 300
+DEFAULT_LANG = os.getenv("ARGOS_VOICE_LANG", "ru-RU")
 
 
 if JNIUS_OK:
@@ -138,8 +143,8 @@ else:
 class VoiceManager:
     """Универсальный помощник для TTS/STT."""
 
-    def __init__(self, lang: str = "ru-RU"):
-        self.lang = lang
+    def __init__(self, lang: Optional[str] = None):
+        self.lang = lang or DEFAULT_LANG
         self.tts_enabled = True
         self._backend = self._init_tts_backend()
         self._last_error: Optional[str] = None

@@ -313,8 +313,9 @@ if KIVY_OK:
                 return
             try:
                 work_dir = os.path.join(App.get_running_app().user_data_dir, "colibri")  # type: ignore[attr-defined]
-            except Exception:
-                work_dir = "/tmp/colibri"
+            except Exception as exc:
+                work_dir = os.path.join(os.getcwd(), "colibri")
+                self._append(f"ℹ️ user_data_dir недоступен: {exc}", S.GRAY)
             os.makedirs(work_dir, exist_ok=True)
             if not self._colibri:
                 self._colibri = ColibriDaemon(work_dir=work_dir, light_mode=True)
