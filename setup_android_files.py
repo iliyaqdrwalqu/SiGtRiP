@@ -66,7 +66,7 @@ PROVIDER_MANIFEST_XML = """\
 # ─────────────────────────────────────────────────────────────────────────────
 # 3. p4a_hook.py — хук Python-for-Android для патча AndroidManifest после сборки
 # ─────────────────────────────────────────────────────────────────────────────
-P4A_HOOK = '''\
+P4A_HOOK = r'''\
 """
 p4a_hook.py — Хук Python-for-Android.
 Патчит pyjnius для Python 3, отключает несовместимые C-модули,
@@ -87,7 +87,7 @@ def fix_pyjnius(arch):
         jnius_src = Path(sp) / "jnius" / "jnius_utils.pxi"
         if jnius_src.exists():
             content = jnius_src.read_text(errors="replace")
-            patched = re.sub(r"\\blong\\b", "int", content)
+            patched = re.sub(r"\blong\b", "int", content)
             if patched != content:
                 jnius_src.write_text(patched)
                 print("[p4a_hook] pyjnius: убрал long() → int()")
@@ -101,7 +101,7 @@ def fix_jni_typedef(arch):
         if jni_pxi.exists():
             content = jni_pxi.read_text(errors="replace")
             patched = re.sub(
-                r"ctypedef\\s+int\\s+int\\s+jlong", "ctypedef long jlong", content
+                r"ctypedef\s+int\s+int\s+jlong", "ctypedef long jlong", content
             )
             if patched != content:
                 jni_pxi.write_text(patched)
@@ -215,7 +215,8 @@ def postbuild_arch(arch, api, **kwargs):
     build_dir = getattr(arch, "build_dir", "")
     dist_dir  = getattr(arch, "dist_dir",  ".buildozer/android/platform/build")
     add_file_provider(build_dir or dist_dir)
-    add_file_paths_xml(dist_dir)'''
+    add_file_paths_xml(dist_dir)
+'''
 
 
 def main():
