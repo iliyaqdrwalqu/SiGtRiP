@@ -334,7 +334,7 @@ _w("pyproject.toml", textwrap.dedent("""\
 
     [project]
     name = "argos-universalsigtrip"
-    version = "2.1.0"
+    version = "2.1.2"
     description = "ARGOS — децентрализованная автономная ИИ-система"
     readme = "README.md"
     license = { text = "MIT" }
