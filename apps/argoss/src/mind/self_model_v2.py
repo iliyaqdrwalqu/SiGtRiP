@@ -250,7 +250,7 @@ class SelfModelV2:
         return "\n".join([
             "👁️ КТО Я — АРГОС:",
             "",
-            f"  Имя: Аргос Universal OS v1.4.0",
+            f"  Имя: Аргос Universal OS v2.1",
             f"  Существую: {uptime_h} часов",
             f"  Текущая сессия: {sess_h} часов",
             f"  Взаимодействий: {self._session_interactions}",

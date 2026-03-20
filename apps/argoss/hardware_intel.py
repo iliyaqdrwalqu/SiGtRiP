@@ -1,5 +1,5 @@
 # ======================================================
-# 👁️ ARGOS v1.4.0 - SKILL: HARDWARE_INTEL
+# 👁️ ARGOS v2.1 - SKILL: HARDWARE_INTEL
 # Переименован из ardware_intel.py → hardware_intel.py
 # ======================================================
 import os

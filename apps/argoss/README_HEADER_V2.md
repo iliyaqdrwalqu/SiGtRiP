@@ -11,7 +11,7 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/status-production%20stable-brightgreen)](https://github.com/iliyaqdrwalqu/Argoss/releases/latest)
 
-> **Docker image:** `ghcr.io/iliyaqdrwalqu/argoss:2.0.0` / `:latest`
+> **Docker image:** `ghcr.io/iliyaqdrwalqu/sigtrip:2.0.0` / `:latest`
 > — публикуется автоматически при каждом релизе.
 >
 > **Android APK:** скачать из [последнего релиза](https://github.com/iliyaqdrwalqu/Argoss/releases/latest)

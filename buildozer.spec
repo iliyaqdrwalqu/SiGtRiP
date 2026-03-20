@@ -3,8 +3,8 @@
 # Application metadata
 title = ARGOS Universal OS
 package.name = argos_universal
-package.domain = org.labuaqlysnecy.argos
-version = 1.4.0
+package.domain = org.iliyaqdrwalqu.argos
+version = 2.1
 
 # Source
 source.dir = .

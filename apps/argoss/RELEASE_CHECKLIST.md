@@ -9,7 +9,7 @@
 - [ ] **Обновить версию** во всех файлах:
   ```bash
   # pyproject.toml
-  sed -i 's/version = "1.4.0"/version = "2.0.0"/' pyproject.toml
+  sed -i 's/version = "2.1.0"/version = "2.1.0"/' pyproject.toml
 
   # pack_archive.py
   sed -i 's/version="1.4.0"/version="2.0.0"/' pack_archive.py
@@ -181,8 +181,8 @@ git push origin v2.0.0
 - [ ] Убедиться, что GitHub Release создан автоматически с нужными артефактами
 - [ ] Проверить, что Docker-образ опубликован на GHCR:
   ```bash
-  docker pull ghcr.io/iliyaqdrwalqu/argoss:2.0.0
-  docker pull ghcr.io/iliyaqdrwalqu/argoss:latest
+  docker pull ghcr.io/iliyaqdrwalqu/sigtrip:2.0.0
+  docker pull ghcr.io/iliyaqdrwalqu/sigtrip:latest
   ```
 - [ ] Проверить, что пакет появился на PyPI:
   ```bash
@@ -194,9 +194,9 @@ git push origin v2.0.0
 
 ---
 
-## 📊 Сводка изменений v1.4.0 → v2.0.0
+## 📊 Сводка изменений v1.4.0 → v2.1
 
-| Категория          | Было (v1.4.0) | Стало (v2.0.0) |
+| Категория          | Було (v1.4.0) | Стало (v2.1) |
 |--------------------|---------------|----------------|
 | Python min version | 3.9           | 3.11           |
 | Модули             | 88            | 88 (очищены)   |

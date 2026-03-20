@@ -1,5 +1,5 @@
 # ======================================================
-# ARGOS v1.4.0 — Android Remote Control UI (Kivy)
+# ARGOS v2.1 — Android Remote Control UI (Kivy)
 # kivy_remote_ui.py — Full remote control client for ARGOS API
 #
 # Tabs:

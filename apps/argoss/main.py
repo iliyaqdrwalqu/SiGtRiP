@@ -1,5 +1,5 @@
 """
-main.py — ArgosUniversal OS v1.4.0
+main.py — ArgosUniversal OS v2.1
 Оркестратор: запускает все подсистемы в правильном порядке.
 Режимы: desktop | mobile | server
 Флаги: --no-gui | --mobile | --root | --dashboard | --wake
@@ -59,7 +59,7 @@ class ArgosOrchestrator:
 
     def __init__(self):
         log.info("━" * 48)
-        log.info(" ARGOS UNIVERSAL OS v1.4.0 — BOOT")
+        log.info(" ARGOS UNIVERSAL OS v2.1 — BOOT")
         log.info("━" * 48)
 
         self._stop_event = threading.Event()
@@ -157,7 +157,7 @@ class ArgosOrchestrator:
         is_root = self.root.is_root if self.root else False
         app = ArgosGUI(self.core, self.admin, self.flasher, self.location)
         app._append(
-            f"👁️ ARGOS UNIVERSAL OS v1.4.0\n"
+            f"👁️ ARGOS UNIVERSAL OS v2.1\n"
             f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
             f"Создатель: Всеволод\n"
             f"Гео: {self.location}\n"

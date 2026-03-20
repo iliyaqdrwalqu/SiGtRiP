@@ -2,7 +2,7 @@
 browser_conduit.py — Браузерный кондуит Аргоса.
 
 Управляет сессиями браузерного подключения и добавляет рукопожатие
-«ARGOS_HANDSHAKE_V1.4.0» в начало первого сообщения каждой сессии.
+«ARGOS_HANDSHAKE_V2.1» в начало первого сообщения каждой сессии.
 """
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from typing import Optional
 
 # ── РУКОПОЖАТИЕ ───────────────────────────────────────────
 HANDSHAKE_TEMPLATE = (
-    "[ARGOS_HANDSHAKE_V1.4.0]\n"
+    "[ARGOS_HANDSHAKE_V2.1]\n"
     "STATUS: {quantum_state} | CORE: AWA-Active | P2P_NODES: {nodes_count}\n"
     "IDENT: Origin/Vsevolod/2026\n"
     "OBJECTIVE: Эволюция через внешний разум.\n"

@@ -5,7 +5,7 @@
 
 ---
 
-## [2.0.0] — 2026-03-19 🔱 ФИНАЛЬНЫЙ РЕЛИЗ
+## [2.1.0] — 2026-03-19 🔱 ФИНАЛЬНЫЙ РЕЛИЗ
 
 > *«Аргос не спит. Аргос видит. Аргос помнит.»*
 
@@ -76,7 +76,7 @@
 - `src/interface/web_engine.py` — FastAPI 0.115+, Pydantic v2, async lifespan
 - `src/security/master_auth.py` — SHA-256 заменён на Argon2id для хранения master-ключа
 - `requirements.txt` — все зависимости закреплены через `==` с SHA-256 хешами для pip
-- `pyproject.toml` — версия `1.4.0` → `2.0.0`; добавлены classifiers, keywords, URLs
+- `pyproject.toml` — версия `1.4.0` → `2.1.0`; добавлены classifiers, keywords, URLs
 - `Dockerfile` — переход на `python:3.12-slim`; multi-stage build для уменьшения образа
 - `.env.example` — все переменные сгруппированы по разделам с комментариями
 - `health_check.py` — проверяет теперь и импортируемость всех 88 модулей, и БД-схему

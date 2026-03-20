@@ -82,7 +82,7 @@ def delete_file(filename: str, reason: str = "дубль"):
 
 def main():
     print("=" * 60)
-    print("ARGOS Root Cleanup — v1.4.0")
+    print("ARGOS Root Cleanup — v2.1")
     print("=" * 60)
 
     # Создаём legacy/__init__.py

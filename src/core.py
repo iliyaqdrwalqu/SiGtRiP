@@ -1125,7 +1125,7 @@ class ArgosCore:
         try:
             # ── Identity Anchor: Аргос всегда помнит кто он ──
             from src.context_manager import IDENTITY_ANCHOR
-            anchor_prefix = f"[ID: ARGOS v1.4.0 | User: Vsevolod | Quantum: Analytic] {IDENTITY_ANCHOR}\n\n"
+            anchor_prefix = f"[ID: ARGOS v2.1 | User: Vsevolod | Quantum: Analytic] {IDENTITY_ANCHOR}\n\n"
 
             # Добавляем историю в промпт
             hist = self.context.get_prompt_context()

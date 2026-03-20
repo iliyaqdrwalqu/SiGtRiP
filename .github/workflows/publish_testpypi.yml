@@ -9,7 +9,7 @@ name: 📦 Publish to TestPyPI
 #   2. Go to your account → Publishing → Add a new publisher
 #   3. Fill in:
 #      - PyPI project name: argos-universalsigtrip
-#      - Owner:             labuaqlysnecy
+#      - Owner:             iliyaqdrwalqu
 #      - Repository:        Argoss
 #      - Workflow file:     publish_testpypi.yml
 #      - Environment name:  (leave blank)
