@@ -1,4 +1,6 @@
 import asyncio
+import io
+import importlib.util
 import logging
 import aiosqlite
 import sys
@@ -6,7 +8,7 @@ from datetime import datetime
 
 from aiogram import Bot, Dispatcher
 from aiogram.filters import Command
-from aiogram.types import Message
+from aiogram.types import BufferedInputFile, Message
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
 import os
@@ -37,6 +39,41 @@ GPT_CONTEXT_LIMIT = 80
 MAX_STORED_MESSAGES_PER_CHAT = 500
 # ISO datetime format "YYYY-MM-DD HH:MM:SS" is 19 characters
 DATETIME_DISPLAY_LENGTH = 19
+
+# Set of chat IDs that have voice output enabled
+_voice_chats: set[int] = set()
+
+# Cached ArgosAbsolute instance — loaded once to avoid re-importing main.py on every /argos call
+_argos_core: object | None = None
+
+
+def _get_argos_core() -> object:
+    """Return a cached ArgosAbsolute instance, loading main.py only the first time."""
+    global _argos_core
+    if _argos_core is None:
+        _spec = importlib.util.spec_from_file_location(
+            "argos_main",
+            os.path.join(os.path.dirname(__file__), "main.py"),
+        )
+        _mod = importlib.util.module_from_spec(_spec)
+        _spec.loader.exec_module(_mod)
+        _argos_core = _mod.ArgosAbsolute()
+    return _argos_core
+
+
+def _tts_to_bytes(text: str, lang: str = "ru") -> bytes | None:
+    """Generate TTS audio for *text* using gTTS and return MP3 bytes.
+
+    Returns ``None`` if gTTS is not installed or synthesis fails.
+    """
+    try:
+        from gtts import gTTS  # type: ignore[import]
+        buf = io.BytesIO()
+        gTTS(text=text[:500], lang=lang).write_to_fp(buf)
+        return buf.getvalue()
+    except Exception as exc:
+        log.warning("TTS synthesis failed: %s", exc)
+        return None
 
 # ====================== SQLite ======================
 DB_NAME = "chat_history.db"
@@ -127,6 +164,8 @@ async def cmd_start(message: Message):
         "Команды:\n"
         "/history — последние 50 сообщений\n"
         "/clear — очистить историю\n"
+        "/voice\\_on — включить голосовые ответы 🔊\n"
+        "/voice\\_off — отключить голосовые ответы 🔇\n"
         "/argos \\<команда\\> — выполнить команду ARGOS\n\n"
         "Команды ARGOS: nfc, bt, wifi, root, gps, status, build apk, "
         "build firmware, model status, model update, 7z pack \\<путь\\>, help",
@@ -146,6 +185,18 @@ async def cmd_clear(message: Message):
         await db.commit()
     await message.answer("✅ Вся история этого чата удалена из базы.")
 
+@dp.message(Command("voice_on"))
+async def cmd_voice_on(message: Message):
+    """Включить голосовые ответы для этого чата."""
+    _voice_chats.add(message.chat.id)
+    await message.answer("🔊 Голосовые ответы включены.")
+
+@dp.message(Command("voice_off"))
+async def cmd_voice_off(message: Message):
+    """Отключить голосовые ответы для этого чата."""
+    _voice_chats.discard(message.chat.id)
+    await message.answer("🔇 Голосовые ответы отключены.")
+
 @dp.message(Command("argos"))
 async def cmd_argos(message: Message):
     """Выполнить команду ARGOS напрямую через Telegram."""
@@ -160,16 +211,8 @@ async def cmd_argos(message: Message):
         return
     cmd = parts[1].strip()
     try:
-        # Импортируем ArgosAbsolute из main.py
-        import importlib.util, sys as _sys
-        import os as _os
-        _spec = importlib.util.spec_from_file_location(
-            "argos_main",
-            _os.path.join(_os.path.dirname(__file__), "main.py"),
-        )
-        _mod = importlib.util.module_from_spec(_spec)
-        _spec.loader.exec_module(_mod)
-        core = _mod.ArgosAbsolute()
+        # Reuse the cached ArgosAbsolute instance — avoids re-loading main.py on every call
+        core = _get_argos_core()
         result = core.execute(cmd)
     except Exception as e:
         result = f"❌ Ошибка выполнения: {e}"
@@ -180,21 +223,36 @@ async def cmd_argos(message: Message):
 @dp.message()
 async def all_messages(message: Message):
     text = message.text or f"[НЕ ТЕКСТ: {message.content_type}]"
-    await save_message(
+
+    # Save message and fetch GPT response concurrently — the current text is passed
+    # directly to get_gpt_response, so history context stays accurate either way.
+    save_task = asyncio.create_task(save_message(
         chat_id=message.chat.id,
         user_id=message.from_user.id,
         username=message.from_user.username or "no_username",
         full_name=message.from_user.full_name,
         text=text,
-    )
+    ))
 
     # In group chats, skip non-text messages
     if message.chat.type in ["group", "supergroup"] and not message.text:
+        await save_task
         return
 
     thinking = await message.answer("🤔 Думаю...")
-    gpt_text = await get_gpt_response(message.chat.id, text)
+    gpt_text, _ = await asyncio.gather(
+        get_gpt_response(message.chat.id, text),
+        save_task,
+    )
     await thinking.edit_text(gpt_text)
+
+    # Send voice reply when enabled for this chat
+    if message.chat.id in _voice_chats:
+        audio_bytes = await asyncio.to_thread(_tts_to_bytes, gpt_text)
+        if audio_bytes:
+            await message.answer_voice(
+                BufferedInputFile(audio_bytes, filename="reply.mp3")
+            )
 
 async def main():
     await init_db()

@@ -17,10 +17,13 @@ full_audit.py — Полная проверка Argos OS: драйверы, па
   5. Android инструменты (adb, fastboot, heimdall)
   6. ИИ-провайдеры (Gemini, Ollama, GigaChat, YandexGPT)
   7. Основные функции Argos (core, memory, p2p, voice, web, ...)
+  8. Новые модули (firmware, OS builder, asm)
+  9. Голосовой вывод (gTTS / pyttsx3 TTS функциональность)
 """
 from __future__ import annotations
 
 import importlib
+import io
 import os
 import platform
 import shutil
@@ -39,11 +42,15 @@ WARN = "⚠️ "
 INFO = "ℹ️ "
 SEP  = "═" * 54
 
-results: list[tuple[str, bool, str]] = []
+results: list[tuple[str, bool, str, float]] = []
+
+# Tracks elapsed time for the current section
+_section_start: float = 0.0
 
 
 def check(label: str, ok: bool, note: str = "") -> None:
-    results.append((label, ok, note))
+    elapsed = time.perf_counter() - _section_start
+    results.append((label, ok, note, elapsed))
     icon = OK if ok else FAIL
     line = f"  {icon}  {label}"
     if note:
@@ -52,6 +59,8 @@ def check(label: str, ok: bool, note: str = "") -> None:
 
 
 def section(title: str) -> None:
+    global _section_start
+    _section_start = time.perf_counter()
     print(f"\n{SEP}")
     print(f"  {title}")
     print(SEP)
@@ -473,6 +482,77 @@ def _try_import(name: str) -> bool:
 
 
 # ══════════════════════════════════════════════════════════════════════════
+# 9. ГОЛОСОВОЙ ВЫВОД (TTS)
+# ══════════════════════════════════════════════════════════════════════════
+
+def check_voice_output() -> None:
+    section("9. ГОЛОСОВОЙ ВЫВОД (TTS)")
+
+    # gTTS — Google Text-to-Speech (используется в telegram_bot.py для голосовых ответов)
+    try:
+        from gtts import gTTS  # type: ignore[import]
+        check("gTTS import", True)
+
+        # Functional test: synthesise a short phrase into an in-memory MP3 buffer
+        t_synth = time.perf_counter()
+        buf = io.BytesIO()
+        gTTS(text="Привет", lang="ru").write_to_fp(buf)
+        elapsed_ms = (time.perf_counter() - t_synth) * 1000
+        audio_kb   = len(buf.getvalue()) / 1024
+        check("gTTS синтез речи (ru)", audio_kb > 0,
+              f"{audio_kb:.1f} КБ  за {elapsed_ms:.0f}мс")
+        check("gTTS MP3 размер > 0 байт", audio_kb > 0)
+    except ImportError:
+        check("gTTS import", False, "pip install gtts")
+    except Exception as e:
+        check("gTTS синтез речи", False, str(e)[:60])
+
+    # pyttsx3 — офлайн TTS (опционально)
+    try:
+        import pyttsx3  # type: ignore[import]
+        check("pyttsx3 import", True)
+        # Only verify initialization — actual speech requires an audio device
+        t_init = time.perf_counter()
+        engine = pyttsx3.init()
+        elapsed_ms = (time.perf_counter() - t_init) * 1000
+        check("pyttsx3 init()", engine is not None,
+              f"готов за {elapsed_ms:.0f}мс")
+    except ImportError:
+        check("pyttsx3 import", False, "pip install pyttsx3")
+    except Exception as e:
+        check("pyttsx3 init", False, str(e)[:60])
+
+    # Telegram voice helper (_tts_to_bytes) in telegram_bot.py
+    try:
+        import importlib.util as _ilu
+        _spec = _ilu.spec_from_file_location(
+            "_tgbot_voice_test",
+            os.path.join(os.path.dirname(__file__), "telegram_bot.py"),
+        )
+        if _spec and _spec.loader:
+            _mod = _ilu.module_from_spec(_spec)
+            # Use a properly formatted dummy token to pass aiogram's token validator
+            _dummy_token = "999999999:AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPtest"
+            import unittest.mock as _mock
+            with _mock.patch.dict(os.environ, {"TELEGRAM_TOKEN": _dummy_token}):
+                try:
+                    _spec.loader.exec_module(_mod)  # type: ignore[attr-defined]
+                except (SystemExit, Exception):
+                    pass
+            fn = getattr(_mod, "_tts_to_bytes", None)
+            if fn:
+                t_fn = time.perf_counter()
+                audio = fn("Тест голоса", lang="ru")
+                elapsed_ms = (time.perf_counter() - t_fn) * 1000
+                check("telegram_bot._tts_to_bytes()", audio is not None and len(audio) > 0,
+                      f"{len(audio or b'')//1024} КБ  за {elapsed_ms:.0f}мс")
+            else:
+                check("telegram_bot._tts_to_bytes()", False, "функция не найдена")
+    except Exception as e:
+        check("telegram_bot._tts_to_bytes()", False, str(e)[:60])
+
+
+# ══════════════════════════════════════════════════════════════════════════
 # MAIN
 # ══════════════════════════════════════════════════════════════════════════
 
@@ -504,12 +584,24 @@ def main() -> None:
         check_ai_providers()
         check_argos_functions()
         check_new_modules()
+        check_voice_output()
 
     # Итог
     elapsed  = time.time() - t0
     total    = len(results)
-    passed   = sum(1 for _, ok, _ in results if ok)
+    passed   = sum(1 for _, ok, _, _t in results if ok)
     failed   = total - passed
+
+    # Show slowest checks (those that took > 200 ms)
+    slow = sorted(
+        [(lbl, t) for lbl, _ok, _note, t in results if t > 0.2],
+        key=lambda x: x[1], reverse=True,
+    )
+    if slow:
+        print(f"\n{'─'*54}")
+        print("  ⏱  Медленные проверки (> 200 мс):")
+        for lbl, t in slow[:10]:
+            print(f"     {t*1000:6.0f}мс  {lbl}")
 
     print(f"\n{'═'*54}")
     if failed == 0:
