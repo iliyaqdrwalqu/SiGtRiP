@@ -3,6 +3,7 @@
 [![🚀 ARGOS Release — Сборка и публикация релиза](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/release.yml/badge.svg)](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/release.yml)
 [![📊 ARGOS Status Report](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/status_report.yml/badge.svg)](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/status_report.yml)
 [![🤖 Argos Auto-Publish Skills to PyPI](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/argos_evolution_publish.yml/badge.svg)](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/argos_evolution_publish.yml)
+[![.github/workflows/publish_testpypi.yml](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/publish_testpypi.yml/badge.svg)](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/publish_testpypi.yml)
 [![🚀 ARGOS Release — Сборка и публикация релиза](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/release.yml/badge.svg)](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/release.yml)
 [![🖥️ Build ARGOS Windows setup.exe](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/build_windows.yml/badge.svg)](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/build_windows.yml)
 [![CI](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/ci.yml/badge.svg)](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/ci.yml)
