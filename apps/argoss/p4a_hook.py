@@ -7,6 +7,9 @@ import os
 import re
 from pathlib import Path
 
+# Ensure third-party Cython builds use Python 3 semantics by default.
+os.environ.setdefault("CYTHON_DEFAULT_LANGUAGE_LEVEL", "3")
+
 
 def fix_pyjnius(arch):
     """Фикс pyjnius для Python 3 (убирает использование 'long')."""
