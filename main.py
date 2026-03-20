@@ -129,6 +129,9 @@ class ArgosOrchestrator:
         try:
             self.root = RootManager()
             log.info("[ROOT] %s", self.root.status().split('\n')[0])
+            if self.root.is_root and self.root.os_type == "Windows":
+                shell_result = self.root.open_admin_shells()
+                log.info("[ROOT] %s", shell_result)
         except Exception as e:
             log.warning("[ROOT] RootManager недоступен: %s", e)
             self.root = None

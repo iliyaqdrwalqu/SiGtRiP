@@ -115,6 +115,25 @@ class RootManager:
         except Exception as e:
             return f"❌ Ошибка su: {e}"
 
+    def open_admin_shells(self) -> str:
+        """Открывает cmd.exe и powershell.exe с правами администратора (только Windows).
+
+        Запущенные оболочки работают независимо и должны быть закрыты пользователем.
+        """
+        if self.os_type != "Windows":
+            return "ℹ️ Запуск оболочек поддерживается только на Windows."
+        if not self.is_root:
+            return "⚠️ Недостаточно прав. Запусти программу от имени администратора."
+        _CREATE_NEW_CONSOLE = 0x00000010
+        results = []
+        for shell, exe in (("cmd", "cmd.exe"), ("powershell", "powershell.exe")):
+            try:
+                subprocess.Popen([exe], creationflags=_CREATE_NEW_CONSOLE)
+                results.append(f"✅ {shell} открыт")
+            except Exception as e:
+                results.append(f"❌ Не удалось открыть {shell}: {e}")
+        return "\n".join(results)
+
     def run_as_root(self, command: str) -> str:
         """Выполняет команду с правами суперпользователя."""
         if self.is_android:
