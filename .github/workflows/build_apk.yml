@@ -29,9 +29,95 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
+  # ───────────────────────────────────────────────────────────────────────────
+  # Sub-agent 1: Lint Python code
+  # Runs in parallel with lint-cython to provide fast feedback on Python style.
+  # ───────────────────────────────────────────────────────────────────────────
+  lint-python:
+    name: 🐍 Lint Python
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install flake8
+        run: pip install flake8
+
+      - name: Run flake8 — fatal syntax / undefined-name errors
+        # Select only the most critical error codes so this job surfaces real
+        # bugs (E9xx = syntax, F63x = assert/print misuse, F7xx = syntax,
+        # F82x = undefined names) without blocking on style warnings.
+        run: |
+          flake8 . \
+            --count \
+            --select=E9,F63,F7,F82 \
+            --show-source \
+            --statistics \
+            --exclude=.buildozer,build,dist,__pycache__,.git
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Sub-agent 2: Lint Cython files
+  # Runs in parallel with lint-python; validates .pyx / .pxi files before build.
+  # ───────────────────────────────────────────────────────────────────────────
+  lint-cython:
+    name: 🔬 Lint Cython
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install Cython
+        run: pip install cython==0.29.37
+
+      - name: Check .pyx / .pxi files for language_level directive
+        # Report any Cython source files that are missing the
+        # '# cython: language_level=3' directive.  Without it Cython defaults
+        # to Python 2 semantics and may produce hard-to-diagnose errors.
+        run: |
+          python3 - <<'PYEOF'
+          from pathlib import Path
+
+          missing = []
+          for pyx in sorted(Path(".").rglob("*.pyx")):
+              if ".buildozer" in pyx.parts or "build" in pyx.parts:
+                  continue
+              text = pyx.read_text(encoding="utf-8", errors="replace")
+              if "language_level" not in text:
+                  missing.append(str(pyx))
+                  print(f"::warning file={pyx}::Missing '# cython: language_level=3' directive")
+
+          if missing:
+              print(f"\n[lint-cython] {len(missing)} .pyx file(s) missing language_level directive:")
+              for f in missing:
+                  print(f"  - {f}")
+          else:
+              print("[lint-cython] ✓ All .pyx files have language_level directive (or none found).")
+          PYEOF
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Sub-agent 3: Build APK
+  # Depends on both lint jobs; builds after code quality gates pass.
+  # ───────────────────────────────────────────────────────────────────────────
   build-apk:
     name: Build Android APK (${{ github.event.inputs.release_mode || 'debug' }})
     runs-on: ubuntu-22.04
+    needs: [lint-python, lint-cython]
     permissions:
       contents: read
 
@@ -82,6 +168,30 @@ jobs:
           pip install --upgrade pip setuptools wheel
           pip install buildozer cython==0.29.37
 
+      - name: Set language_level=3 in cached .pyx files (Cython pre-step)
+        # Add the '# cython: language_level=3' directive to any .pyx file in
+        # the buildozer cache that lacks it.  This prevents the warning:
+        #   "Cython directive 'language_level' not set, using 2 for now (Py2)."
+        # and avoids Python 2 / Python 3 semantic mismatches during compilation.
+        run: |
+          python3 - <<'PYEOF'
+          from pathlib import Path
+
+          directive = "# cython: language_level=3\n"
+          patched_count = 0
+          for pyx in Path(".buildozer").rglob("*.pyx"):
+              try:
+                  text = pyx.read_text(encoding="utf-8", errors="replace")
+                  if "language_level" not in text:
+                      pyx.write_text(directive + text, encoding="utf-8")
+                      print(f"[cython-pre] Added language_level=3 to: {pyx}")
+                      patched_count += 1
+              except OSError as e:
+                  print(f"[cython-pre] WARNING: Could not patch {pyx}: {e}")
+
+          print(f"[cython-pre] Patched {patched_count} .pyx file(s).")
+          PYEOF
+
       - name: Patch cached pyjnius source (long → int, jlong typedef)
         run: |
           python3 - <<'PYEOF'
@@ -111,10 +221,21 @@ jobs:
         timeout-minutes: 60
         env:
           BUILDOZER_WARN_ON_ROOT: "0"
+          # Force Cython to use Python 3 semantics for all compiled extensions.
+          CYTHON_DEFAULT_LANGUAGE_LEVEL: "3"
         run: |
           MODE="${{ github.event.inputs.release_mode || 'debug' }}"
           echo "▶ buildozer android $MODE"
-          buildozer -v android $MODE
+          # Capture full output so we can grep for Cython errors on failure.
+          buildozer -v android $MODE 2>&1 | tee /tmp/buildozer_output.txt
+          BUILD_EXIT=${PIPESTATUS[0]}
+          if [ "$BUILD_EXIT" -ne 0 ]; then
+            echo "::error::APK build failed (exit $BUILD_EXIT). Scanning for Cython errors..."
+            # Surface Cython-specific errors to make diagnosis easier.
+            grep -E "(Error|error:|warning:).*(Cython|\.pyx|\.pxi)|Declarator should be empty|undeclared name not builtin|language_level" \
+              /tmp/buildozer_output.txt | head -50 || true
+            exit "$BUILD_EXIT"
+          fi
 
       - name: List built APK(s)
         if: always()
