@@ -9,7 +9,7 @@ name: 🚀 Publish to PyPI
 #   3. Fill in:
 #      - PyPI project name: argos-universalsigtrip
 #      - Owner:             iliyaqdrwalqu
-#      - Repository:        Argoss
+#      - Repository:        SiGtRiP
 #      - Workflow file:     publish_pypi.yml
 #      - Environment name:  (leave blank)
 #
@@ -39,10 +39,28 @@ jobs:
           python-version: "3.11"
 
       - name: Install build tools
-        run: pip install build
+        run: python -m pip install --upgrade pip build
 
       - name: Build package
-        run: python -m build
+        # Run from the parent directory so that the local build.py in the repo
+        # does not shadow the pypa-build module needed to create dist artifacts.
+        run: |
+          if [ -z "$GITHUB_WORKSPACE" ]; then
+            echo "GITHUB_WORKSPACE is not set" >&2
+            exit 1
+          fi
+          case "$GITHUB_WORKSPACE" in
+            /*) ;;
+            *) echo "GITHUB_WORKSPACE must be absolute" >&2; exit 1 ;;
+          esac
+          case "$GITHUB_WORKSPACE" in
+            /home/runner/work/*) ;;
+            *) echo "Unexpected workspace path: $GITHUB_WORKSPACE" >&2; exit 1 ;;
+          esac
+          DIST_PATH="${GITHUB_WORKSPACE}/dist"
+          rm -rf "$DIST_PATH"
+          cd "${GITHUB_WORKSPACE}/.."
+          python -m build "${GITHUB_WORKSPACE}" --outdir "${GITHUB_WORKSPACE}/dist"
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1

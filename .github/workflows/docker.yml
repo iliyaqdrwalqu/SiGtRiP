@@ -21,6 +21,9 @@ jobs:
   docker-build:
     name: Build Docker image
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - name: Checkout repository
@@ -40,13 +43,23 @@ jobs:
             type=sha,prefix=sha-
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
 
-      - name: Log in to GitHub Container Registry
+      - name: Select GHCR token
+        id: ghcr-token
+        env:
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          FALLBACK_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '::add-mask::%s\n' "$GHCR_TOKEN"
+          token="${GHCR_TOKEN:-$FALLBACK_TOKEN}"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GHCR
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ steps.ghcr-token.outputs.token }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
