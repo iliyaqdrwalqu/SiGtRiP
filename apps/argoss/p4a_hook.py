@@ -7,7 +7,7 @@ import os
 import re
 from pathlib import Path
 
-# Ensure third-party Cython builds use Python 3 semantics by default.
+# Ensure third-party Cython builds default to Python 3 semantics during recipe compilation.
 os.environ.setdefault("CYTHON_DEFAULT_LANGUAGE_LEVEL", "3")
 
 
