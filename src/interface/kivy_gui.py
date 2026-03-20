@@ -1,5 +1,5 @@
 """
-kivy_gui.py — ARGOS v1.3 Kivy UI (Smooth Glass / Sovereign Emerald)
+kivy_gui.py — ARGOS v2.1 Kivy UI (Sovereign Emerald / Deep Space)
 Запуск: python main.py --mobile
 """
 try:
@@ -18,6 +18,19 @@ try:
     KIVY_OK = True
 except ImportError:
     KIVY_OK = False
+
+try:
+    from src.interface.style import S
+except ImportError:
+    try:
+        from style import S
+    except ImportError:
+        class _S:
+            BG = (0.04, 0.05, 0.10, 1)
+            GREEN = (0.00, 1.00, 0.40, 1)
+            CYAN = (0.00, 1.00, 0.80, 1)
+            CARD = (0.08, 0.11, 0.21, 1)
+        S = _S()
 
 if KIVY_OK:
     Builder.load_string('''
@@ -124,7 +137,7 @@ if KIVY_OK:
             self.core_callback = None
 
         def build(self):
-            Window.clearcolor = (0, 0.02, 0.04, 1)
+            Window.clearcolor = S.BG
             self.root_node = ArgosRoot()
             # Запускаем авто-обновление состояния
             Clock.schedule_interval(self._tick, 5)
