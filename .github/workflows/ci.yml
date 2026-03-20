@@ -29,7 +29,14 @@ jobs:
     - name: Build package
       run: |
         set -euxo pipefail
-        python -m build --outdir dist
+        python -m pip install --upgrade build
+        rm -rf "${GITHUB_WORKSPACE}/dist"
+        tmpdir="$(mktemp -d)"
+        trap 'rm -rf "${tmpdir}"' EXIT
+        cd "$tmpdir"
+        python -m build --outdir "${GITHUB_WORKSPACE}/dist" --sdist --wheel "${GITHUB_WORKSPACE}"
+        echo "Build contents:"
+        ls -l "${GITHUB_WORKSPACE}/dist"
 
     - name: List artifacts
       run: |
