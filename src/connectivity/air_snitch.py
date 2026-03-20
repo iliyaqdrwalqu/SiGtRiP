@@ -2,8 +2,16 @@
 air_snitch.py — AirSnitch (SDR / Sub-GHz Radio Scanner)
 Пассивный мониторинг эфира 433/868/915 МГц.
 ⚠ Только RX. Передача запрещена.
+
+Поддерживает два режима:
+  • rtl_433 (subprocess) — перехват пакетов через rtl_433 JSON-вывод
+  • RTL-SDR (pyrtlsdr) — низкоуровневый сырой сигнал
+  • Serial — чтение с UART-приёмника
+
+Модуль управляется RX 560 (4GB): потоковая задача, не требующая основного мозга.
 """
 import os
+import subprocess
 import time
 import json
 import threading
@@ -61,14 +69,101 @@ class RFPacket:
 
 
 class AirSnitch:
-    """SDR/Sub-GHz сканер эфира (RX only)."""
+    """Сверхслух Аргоса: SDR/Sub-GHz сканер эфира 433/868/915 МГц (RX only).
+
+    Принимает необязательный ``core`` — ссылку на ArgosCore.
+    При наличии ``core`` перехваченные данные сохраняются в быстрой памяти
+    и пробрасываются через шину событий AWA.
+    """
     MAX_LOG = 500
 
-    def __init__(self):
+    def __init__(self, core=None):
+        self.core = core
         self._packets: deque = deque(maxlen=self.MAX_LOG)
         self._running = False
         self._thread: Optional[threading.Thread] = None
         self._serial_port = None
+        self.process: Optional[subprocess.Popen] = None
+
+    # ── rtl_433 subprocess mode ──────────────────────────────────────────────
+
+    def start_sniffing(self) -> str:
+        """Запуск перехвата через rtl_433 (subprocess JSON-режим).
+
+        Для работы требуется установленный rtl_433:
+          Linux/Docker: sudo apt install rtl-433
+          Windows:      rtl_433.exe в PATH или папке проекта
+        """
+        if self._running:
+            return "⚠️ AirSnitch: уже запущен"
+        self._running = True
+        self._thread = threading.Thread(target=self._rtl433_run, daemon=True, name="AirSnitch")
+        self._thread.start()
+        log.info("AirSnitch: сканирование эфира запущено (rtl_433)")
+        print("📡 [AIR-SNITCH] Аргос начал слушать эфир...")
+        return "✅ AirSnitch: сканирование запущено"
+
+    def _rtl433_run(self) -> None:
+        """Фоновый цикл: читает JSON-пакеты из rtl_433 и обрабатывает."""
+        cmd = ["rtl_433", "-F", "json", "-M", "level"]
+        try:
+            self.process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+            for raw_line in iter(self.process.stdout.readline, b""):
+                if not self._running:
+                    break
+                try:
+                    data = json.loads(raw_line.decode("utf-8"))
+                    self._process_packet(data)
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    continue
+        except FileNotFoundError:
+            log.warning("AirSnitch: rtl_433 не найден. Установи: sudo apt install rtl-433")
+            print("⚠️ [AIR-SNITCH] rtl_433 не найден. Установи: sudo apt install rtl-433")
+            self._running = False
+        except Exception as e:
+            log.error("AirSnitch _rtl433_run: %s", e)
+            self._running = False
+
+    def _process_packet(self, packet: dict) -> None:
+        """Анализ перехваченного сигнала rtl_433 и интеграция с ядром Аргоса."""
+        model = packet.get("model", "Unknown")
+        temp = packet.get("temperature_C")
+        btn = packet.get("button") or packet.get("event")
+
+        pkt = RFPacket(
+            freq_hz=float(packet.get("freq", packet.get("frequency", 433.92)) or 433.92) * 1e6,
+            rssi_dbm=float(packet.get("rssi", -100) or -100),
+            modulation=packet.get("mod", "OOK"),
+            protocol=str(model),
+            device_id=str(packet.get("id", "")),
+            decoded=json.dumps(packet, ensure_ascii=False)[:200],
+            summary=f"{model} rssi={packet.get('rssi','?')}dBm",
+        )
+        self._packets.append(pkt)
+
+        if temp is not None:
+            msg = f"Услышал датчик {model}: Температура {temp}°C"
+            log.info("AirSnitch: %s", msg)
+            if self.core and hasattr(self.core, "memory"):
+                try:
+                    self.core.memory.fast_store(f"Radio_Sensor_{model}: {temp}C")
+                except Exception as e:
+                    log.debug("AirSnitch memory store: %s", e)
+
+        if btn:
+            log.info("AirSnitch: перехвачен сигнал пульта %s → %s", model, btn)
+            print(f"🔑 [AIR-SNITCH] Перехвачен сигнал пульта: {model} -> {btn}")
+            if self.core and hasattr(self.core, "awa"):
+                try:
+                    self.core.awa.trigger_event("radio_event", packet)
+                except Exception as e:
+                    log.debug("AirSnitch awa trigger: %s", e)
+
+    # ── RTL-SDR low-level mode ───────────────────────────────────────────────
 
     def start_rtlsdr(self, band: str = "433", gain: float = 40.0) -> str:
         if not RTLSDR_OK:
@@ -95,9 +190,15 @@ class AirSnitch:
 
     def stop(self) -> str:
         self._running = False
+        if self.process:
+            try:
+                self.process.terminate()
+            except Exception:
+                pass
         if self._serial_port:
             try: self._serial_port.close()
             except Exception: pass
+        log.info("AirSnitch: остановлен")
         return "✅ AirSnitch остановлен"
 
     def _rtl_loop(self, freq: float, gain: float):
