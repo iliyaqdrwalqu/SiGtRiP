@@ -36,11 +36,15 @@ jobs:
         python build.py
         python -m pip install --upgrade build
         python - <<'PY'
-        import sys, runpy
+        import os, sys, runpy
 
         # Drop current working directory so the installed `build` package is used
         # instead of the local build.py module.
-        sys.path = sys.path[1:]
+        for entry in ("", os.getcwd()):
+            try:
+                sys.path.remove(entry)
+            except ValueError:
+                pass
         sys.argv = ["build", "--outdir", "dist"]
         runpy.run_module("build", run_name="__main__")
         PY
