@@ -73,7 +73,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install Cython
-        run: pip install cython==0.29.37
+        run: pip install cython==0.29.36
 
       - name: Check .pyx / .pxi files for language_level directive
         # Report any Cython source files that are missing the
@@ -169,7 +169,12 @@ jobs:
       - name: Install Python build tools
         run: |
           pip install --upgrade pip
-          pip install buildozer cython==0.29.37
+          pip install buildozer cython==0.29.36 "pyjnius>=1.6.1"
+
+      - name: Clean stale Cython build artifacts
+        run: |
+          find .buildozer -name "*.c" -delete 2>/dev/null || true
+          find .buildozer -name "*.so" -delete 2>/dev/null || true
 
       - name: Set language_level=3 in cached .pyx files (Cython pre-step)
         # Add the '# cython: language_level=3' directive to any .pyx file in

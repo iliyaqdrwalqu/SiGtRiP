@@ -52,3 +52,7 @@ networkx>=3.2.1
 # ── ML (собственная модель)
 scikit-learn>=1.4.0
 numpy>=1.26.0
+
+# ── Android / Cython build
+Cython==0.29.36
+pyjnius>=1.6.1
