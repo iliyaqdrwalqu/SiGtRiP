@@ -75,13 +75,13 @@
 
 ## ✅ Проверка актуальности README
 
-README синхронизирован с текущим состоянием репозитория (ветка `sigtrip/Argosss`) и ориентирован на реальные файлы и точки входа:
+README синхронизирован с текущим состоянием репозитория (ветка `main`) и ориентирован на реальные файлы и точки входа:
 
 - ✅ Основной запуск: `python main.py` (файл `/main.py`).
 - ✅ Режимы запуска: `--no-gui`, `--mobile`, `--dashboard`, `--wake`, `--full`, `--shell`, `--root`.
 - ✅ Скрипт запуска `/launch.sh` (без аргументов включает `--full`).
 - ✅ Проверка целостности: `python health_check.py`.
-- ✅ Актуальный список зависимостей: `requirements.txt` (файла `requirements-optional.txt` в репозитории нет).
+- ✅ Актуальный список зависимостей: `requirements.txt` и `requirements-optional.txt`.
 - ✅ Архитектура соответствует реальным папкам `/src`, `/tests`, `/docs`, `/examples`, `/config`, `/data`, `/installer`.
 
 ---
@@ -177,7 +177,6 @@ ArgosUniversal/
     │   ├── smarthome_override.py # ★ Прямое Zigbee/Z-Wave/Tuya без облаков
     │   ├── power_sentry.py       # ★ Мониторинг UPS / PZEM / аварийное отключение
     │   ├── android_service.py    # ArgosOmniService — фоновый Android-сервис
-    │   ├── iot_bridge.py         # (см. выше)
     │   └── ...                   # sensor_bridge, spatial, alert_system, wake_word
     │
     ├── factory/
@@ -327,10 +326,10 @@ python health_check.py # проверка целостности
 ### 4. Сборка релизного архива
 
 ```bash
-python pack_archive.py --version 1.3.0
+python pack_archive.py --version 2.1.0
 ```
 
-Архив будет создан в `releases/argos-v1.3.0.zip` и готов для публикации как release asset.
+Архив будет создан в `releases/argos-v2.1.0.zip` и готов для публикации как release asset.
 
 ---
 
@@ -1010,7 +1009,7 @@ pip install argos-universalsigtrip
 2. **Add a new pending publisher**:
    - PyPI project name: `argos-universalsigtrip`
    - Owner: `iliyaqdrwalqu`
-   - Repository: `Argoss`
+   - Repository: `SiGtRiP`
    - Workflow file name: `publish_testpypi.yml`
    - Environment name: *(оставить пустым)*
 3. Запустить workflow вручную: **Actions → 📦 Publish to TestPyPI → Run workflow**
@@ -1052,7 +1051,7 @@ ArgosKivyApp · ArgosWebEngine · MasterAuth · SensorBridge · SmarthomeOverrid
 2. Перейдите в **Publishing → Trusted publishers → Add a new publisher**.
 3. Заполните:
    - **Owner**: `iliyaqdrwalqu`
-   - **Repository**: `Argoss`
+   - **Repository**: `SiGtRiP`
    - **Workflow file name**: `publish_testpypi.yml`
 4. Сохраните.
 
