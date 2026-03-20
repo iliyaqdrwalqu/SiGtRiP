@@ -390,7 +390,7 @@ if KIVY_OK:
                     txt = voice.listen()
             except Exception as exc:
                 txt = ""
-                Clock.schedule_once(lambda *_: self._append(f"❌ Голос: {exc}", error=True))
+                Clock.schedule_once(lambda *_, e=exc: self._append(f"❌ Голос: {e}", error=True))
             Clock.schedule_once(lambda *_: self._after_listen(txt))
 
         def _after_listen(self, txt: str):
