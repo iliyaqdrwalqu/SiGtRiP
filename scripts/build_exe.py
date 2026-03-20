@@ -85,7 +85,8 @@ def build():
         exe = "dist/argos.exe" if OS == "Windows" else "dist/argos"
         size = os.path.getsize(exe) / (1024*1024) if os.path.exists(exe) else 0
         print(f"\n✅ ГОТОВО: {exe} ({size:.1f} MB)")
-        print(f"   Запуск: {'dist\\argos.exe' if OS == 'Windows' else './dist/argos'}")
+        launch_hint = exe if OS == "Windows" else "./dist/argos"
+        print(f"   Запуск: {launch_hint}")
         if "--no7z" not in sys.argv:
             _compress_dist_7z()
     else:
