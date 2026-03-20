@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import os
 import threading
-from typing import Optional
+from typing import Optional, Tuple
 
 # ── Optional dependencies ------------------------------------------------------
 try:
@@ -119,7 +119,7 @@ if JNIUS_OK:
         def onEvent(self, _event_type, _params):  # noqa: N802
             pass
 
-        def wait_result(self, timeout: float = 10.0) -> tuple[Optional[str], Optional[str]]:
+        def wait_result(self, timeout: float = 10.0) -> Tuple[Optional[str], Optional[str]]:
             self._event.wait(timeout)
             return self.text, self.error
 else:
@@ -130,7 +130,7 @@ else:
             self.text: Optional[str] = None
             self.error: Optional[str] = "STT backend unavailable"
 
-        def wait_result(self, timeout: float = 0.0) -> tuple[Optional[str], Optional[str]]:
+        def wait_result(self, timeout: float = 0.0) -> Tuple[Optional[str], Optional[str]]:
             return self.text, self.error
 
 

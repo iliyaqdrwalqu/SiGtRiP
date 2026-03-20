@@ -440,13 +440,34 @@ if KIVY_OK:
             root = BoxLayout(orientation="vertical")
 
             tp = TabbedPanel(do_default_tab=False)
-            tab_wifi = TabbedPanelItem(text="📡 WiFi"); tab_wifi.add_widget(WiFiPanel(self._wifi)); tp.add_widget(tab_wifi)
-            tab_bt = TabbedPanelItem(text="🔵 BT"); tab_bt.add_widget(BluetoothPanel()); tp.add_widget(tab_bt)
-            tab_root = TabbedPanelItem(text="🛡 Root"); tab_root.add_widget(RootPanel(self._root)); tp.add_widget(tab_root)
-            tab_files = TabbedPanelItem(text="📂 Files"); tab_files.add_widget(FilesPanel()); tp.add_widget(tab_files)
-            tab_term = TabbedPanelItem(text="🖥 Term"); tab_term.add_widget(TerminalPanel(self._voice)); tp.add_widget(tab_term)
-            tab_otg = TabbedPanelItem(text="🔌 OTG"); tab_otg.add_widget(OTGPanel(self._otg)); tp.add_widget(tab_otg)
-            tab_flash = TabbedPanelItem(text="⚡ Flasher"); tab_flash.add_widget(FlasherPanel(self._flasher)); tp.add_widget(tab_flash)
+
+            tab_wifi = TabbedPanelItem(text="📡 WiFi")
+            tab_wifi.add_widget(WiFiPanel(self._wifi))
+            tp.add_widget(tab_wifi)
+
+            tab_bt = TabbedPanelItem(text="🔵 BT")
+            tab_bt.add_widget(BluetoothPanel())
+            tp.add_widget(tab_bt)
+
+            tab_root = TabbedPanelItem(text="🛡 Root")
+            tab_root.add_widget(RootPanel(self._root))
+            tp.add_widget(tab_root)
+
+            tab_files = TabbedPanelItem(text="📂 Files")
+            tab_files.add_widget(FilesPanel())
+            tp.add_widget(tab_files)
+
+            tab_term = TabbedPanelItem(text="🖥 Term")
+            tab_term.add_widget(TerminalPanel(self._voice))
+            tp.add_widget(tab_term)
+
+            tab_otg = TabbedPanelItem(text="🔌 OTG")
+            tab_otg.add_widget(OTGPanel(self._otg))
+            tp.add_widget(tab_otg)
+
+            tab_flash = TabbedPanelItem(text="⚡ Flasher")
+            tab_flash.add_widget(FlasherPanel(self._flasher))
+            tp.add_widget(tab_flash)
 
             root.add_widget(tp)
             return root
