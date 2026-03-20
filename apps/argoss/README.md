@@ -1013,7 +1013,7 @@ pip install argos-universalsigtrip
    - Owner: `iliyaqdrwalqu`
    - Repository: `Argoss`
    - Workflow file path: `.github/workflows/publish_testpypi.yml`
-   - Environment name: *(оставить пустым)*
+   - Environment name: `testpypi`
 3. Запустить workflow вручную: **Actions → 📦 Publish to TestPyPI → Run workflow**
 
 #### PyPI (production)
