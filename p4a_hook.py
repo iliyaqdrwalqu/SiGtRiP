@@ -18,6 +18,9 @@ import glob
 import os
 import re
 
+# Ensure third-party Cython builds default to Python 3 semantics during recipe compilation.
+os.environ.setdefault("CYTHON_DEFAULT_LANGUAGE_LEVEL", "3")
+
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -4,6 +4,9 @@ FROM python:3.11-slim@sha256:6d98ca198cea726f2c86da2699594339a7b7ff08e49728797b4
 
 WORKDIR /build
 
+# Ensure Cython builds default to Python 3 semantics during dependency compilation
+ENV CYTHON_DEFAULT_LANGUAGE_LEVEL=3
+
 # System deps needed to compile some Python packages (PyAudio, cryptography, etc.)
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential \
