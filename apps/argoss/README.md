@@ -1012,14 +1012,18 @@ pip install argos-universalsigtrip
    - PyPI project name: `argos-universalsigtrip`
    - Owner: `iliyaqdrwalqu`
    - Repository: `Argoss`
+   - Workflow file name: `publish_testpypi.yml`
+   - Environment name: *(оставить пустым)*
+
    - Workflow file path: `.github/workflows/publish_testpypi.yml`
    - Environment name: `testpypi`
+
 3. Запустить workflow вручную: **Actions → 📦 Publish to TestPyPI → Run workflow**
 
 #### PyPI (production)
 1. Зайти на [pypi.org](https://pypi.org) → Аккаунт → Publishing
 2. **Add a new pending publisher** с теми же параметрами, но:
-   - Workflow file path: `.github/workflows/publish_pypi.yml`
+   - Workflow file name: `publish_pypi.yml`
 3. Создать GitHub Release (тег `v*.*.*`) или запустить вручную:
    **Actions → 🚀 Publish to PyPI → Run workflow**
 
