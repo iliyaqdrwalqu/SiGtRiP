@@ -5,6 +5,41 @@
 
 ---
 
+## [2.1.4] — 2026-03-20 🔧 CI/CD: Стабилизация сборки APK
+
+### 🐛 Исправлено
+
+#### CI — `build_apk.yml` (постоянно проваливался без запуска jobs)
+
+**Корневая причина:** Синтаксическая ошибка YAML в `lint-python` job — `run: pip install flake8`
+был прописан как свойство шага `uses: actions/setup-python@v6`. У одного шага не может быть
+одновременно `uses:` и `run:`, что приводило к ошибке парсинга workflow ещё до запуска любых jobs.
+В итоге `conclusion: failure` при `total_jobs: 0` — классический признак синтаксической ошибки YAML.
+
+**Что изменено:**
+- Отделён `Install flake8` в самостоятельный шаг после `Set up Python 3.10`
+- Версия Cython выровнена: `0.29.37` → `0.29.36` (в `lint-cython` и `build-apk`)
+  — согласно требованиям задачи и для совместимости с `pyjnius==1.6.1`
+
+**Что уже было правильно (не трогаем):**
+- `buildozer.spec`: `requirements = ...pyjnius==1.6.1,...` ✅
+- `setup.cfg`: `language_level = 3` ✅
+- `p4a_hook.py`: `CYTHON_DEFAULT_LANGUAGE_LEVEL=3` + патч `long→int` ✅
+- `p4a-recipes/pyjnius/__init__.py`: кастомный рецепт с патчем ✅
+- `android-apk.yml`: `cython==0.29.36` ✅
+
+**История попыток исправления (чтобы не повторять):**
+
+| Попытка | Что делали | Результат |
+|---------|-----------|-----------|
+| PR #previous | Добавляли `language_level=3` в setup.cfg | ✅ Оставлено, корректно |
+| PR #previous | Кастомный p4a-recipes/pyjnius патч `long→int` | ✅ Оставлено, нужно для Cython 3.x |
+| PR #previous | p4a_hook.py патч jnius_utils.pxi | ✅ Оставлено как запасной патч |
+| PR #this | **Исправлена YAML-ошибка в build_apk.yml** | ✅ Корень проблемы! |
+| PR #this | Cython 0.29.37 → 0.29.36 в build_apk.yml | ✅ Соответствует требованиям |
+
+---
+
 ## [2.1.0] — 2026-03-19 🔱 ФИНАЛЬНЫЙ РЕЛИЗ
 
 > *«Аргос не спит. Аргос видит. Аргос помнит.»*
