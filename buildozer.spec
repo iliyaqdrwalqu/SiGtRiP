@@ -27,8 +27,7 @@ android.permissions = INTERNET,BLUETOOTH_ADMIN,NFC,READ_EXTERNAL_STORAGE,WRITE_E
 android.api = 33
 android.minapi = 24
 android.ndk = 25b
-android.sdk = 33
-android.arch = arm64-v8a
+android.archs = arm64-v8a
 
 # Enable Android features
 android.accept_sdk_license = True
