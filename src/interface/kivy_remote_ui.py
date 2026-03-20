@@ -287,7 +287,7 @@ if KIVY_OK:
             super().__init__(orientation="vertical", padding=16, spacing=8, **kwargs)
             self._settings = settings
             self._history  = []
-            self._voice: VoiceManager | None = VoiceManager() if VOICE_OK else None
+            self._voice: VoiceManager | None = None
             self._tts_enabled = True
             self._listening = False
 
@@ -366,7 +366,8 @@ if KIVY_OK:
             self._output.text += f"\n{text}"
 
         def _start_voice(self, *_):
-            if not self._voice:
+            voice = self._ensure_voice()
+            if not voice:
                 self._append("⚠️ Голосовой модуль недоступен.", error=True)
                 return
             if self._listening:
@@ -378,7 +379,9 @@ if KIVY_OK:
         def _do_listen(self):
             txt = ""
             try:
-                txt = self._voice.listen()
+                voice = self._ensure_voice()
+                if voice:
+                    txt = voice.listen()
             except Exception as exc:
                 txt = ""
                 Clock.schedule_once(lambda *_: self._append(f"❌ Голос: {exc}", error=True))
@@ -400,11 +403,26 @@ if KIVY_OK:
             self._tts_btn.text = "🔊 TTS: ON" if self._tts_enabled else "🔇 TTS: OFF"
 
         def _speak(self, text: str):
-            if self._voice and self._tts_enabled:
+            if not self._tts_enabled:
+                return
+            voice = self._ensure_voice()
+            if voice:
                 try:
-                    self._voice.speak(text)
+                    voice.speak(text)
                 except Exception:
                     pass
+
+        def _ensure_voice(self) -> VoiceManager | None:
+            if not VOICE_OK:
+                return None
+            if self._voice is None:
+                try:
+                    self._voice = VoiceManager()
+                    self._voice.tts_enabled = self._tts_enabled
+                except Exception as exc:
+                    self._append(f"⚠️ Голос недоступен: {exc}", error=True)
+                    self._voice = None
+            return self._voice
 
     # ─────────────────────────────────────────────────────────────────────────
     # Main App

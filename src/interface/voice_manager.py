@@ -123,7 +123,7 @@ if JNIUS_OK:
             self._event.wait(timeout)
             return self.text, self.error
 else:
-    class _RecognizerListener:  # type: ignore[too-many-instance-attributes]
+    class _RecognizerListener:
         """Заглушка для не-Android окружений."""
 
         def __init__(self, *_args, **_kwargs):
@@ -142,6 +142,9 @@ class VoiceManager:
         self.tts_enabled = True
         self._backend = self._init_tts_backend()
         self._last_error: Optional[str] = None
+        self._sr_recognizer = _sr.Recognizer() if SR_OK else None
+        if self._sr_recognizer:
+            self._sr_recognizer.energy_threshold = 300
 
     # ── TTS ------------------------------------------------------------------
     def _init_tts_backend(self) -> str:
@@ -251,8 +254,7 @@ class VoiceManager:
 
     def _listen_speech_recognition(self, timeout: float, phrase_limit: float) -> str:
         """STT через speech_recognition (Google Speech API)."""
-        recognizer = _sr.Recognizer()
-        recognizer.energy_threshold = 300
+        recognizer = self._sr_recognizer or _sr.Recognizer()
         try:
             with _sr.Microphone() as source:
                 recognizer.adjust_for_ambient_noise(source, duration=0.3)

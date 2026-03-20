@@ -328,11 +328,12 @@ if KIVY_OK:
 
         @_async
         def _listen(self):
-            if not self._voice:
+            voice = self._ensure_voice()
+            if not voice:
                 self._append("⚠️ Голосовой ввод недоступен.", S.GRAY)
                 return
             try:
-                text = self._voice.listen()
+                text = voice.listen()
                 if text:
                     self._append(f"🎙 {text}", S.GREEN)
                     self._inp.text = text
@@ -341,6 +342,19 @@ if KIVY_OK:
                     self._append("👂 Не распознано.", S.GRAY)
             except Exception as exc:
                 self._append(f"❌ Голос: {exc}", S.BTN_DANGER)
+
+        def _ensure_voice(self) -> Optional[VoiceManager]:
+            if self._voice:
+                return self._voice
+            if not VOICE_OK:
+                return None
+            try:
+                self._voice = VoiceManager()
+                return self._voice
+            except Exception as exc:
+                self._append(f"⚠️ Голос недоступен: {exc}", S.GRAY)
+                self._voice = None
+                return None
 
 
     class OTGPanel(BoxLayout):
@@ -433,7 +447,7 @@ if KIVY_OK:
             self._root = RootManager() if RootManager else None
             self._otg = OTGManager() if OTGManager else None
             self._flasher = AirFlasher() if AirFlasher else None
-            self._voice = VoiceManager() if VOICE_OK else None
+            self._voice: Optional[VoiceManager] = None
 
         def build(self):
             Window.clearcolor = S.BG
