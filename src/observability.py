@@ -216,3 +216,37 @@ def _format_record(r: dict) -> str:
     if r.get("type") == "intent":
         return f"\"{r.get('text','')[:40]}\" → {r.get('intent','?')}"
     return str({k: v for k, v in r.items() if k not in ("type","ts","source")})[:80]
+
+
+# ── ACCEPTANCE RATE TRACKING ──────────────────────────────────
+_acceptance_lock    = threading.Lock()
+_acceptance_samples: list = []   # [(timestamp, quality_float), ...]
+_ACCEPTANCE_MAX_ENTRIES = 2000
+
+
+def record_acceptance(quality: float) -> None:
+    """Записать оценку качества ответа в глобальный журнал acceptances.
+
+    quality — значение от 0.0 до 1.0 (1.0 = принят, 0.0 = отклонён).
+    Используется TaskQueueManager для backpressure по acceptance rate.
+    """
+    with _acceptance_lock:
+        _acceptance_samples.append((time.time(), float(quality)))
+        if len(_acceptance_samples) > _ACCEPTANCE_MAX_ENTRIES:
+            del _acceptance_samples[:-(_ACCEPTANCE_MAX_ENTRIES // 2)]
+
+
+def get_acceptance_snapshot(window: int = 120) -> dict:
+    """Вернуть snapshot acceptance rate за последние ``window`` секунд.
+
+    Возвращает словарь:
+        ``rate``    — средняя оценка качества в окне (0.0–1.0); 1.0 если
+                      нет данных (оптимистичный default).
+        ``samples`` — количество замеров в окне.
+    """
+    cutoff = time.time() - window
+    with _acceptance_lock:
+        recent = [q for ts, q in _acceptance_samples if ts >= cutoff]
+    if not recent:
+        return {"rate": 1.0, "samples": 0}
+    return {"rate": sum(recent) / len(recent), "samples": len(recent)}
