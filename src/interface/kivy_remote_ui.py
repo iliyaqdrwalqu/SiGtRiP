@@ -20,6 +20,13 @@ except ImportError:
     REQUESTS_OK = False
 
 try:
+    from src.interface.voice_manager import VoiceManager
+    VOICE_OK = True
+except Exception:
+    VoiceManager = None  # type: ignore
+    VOICE_OK = False
+
+try:
     from kivy.app import App
     from kivy.uix.boxlayout import BoxLayout
     from kivy.uix.tabbedpanel import TabbedPanel, TabbedPanelItem
@@ -45,6 +52,12 @@ _GRAY = (0.5, 0.6, 0.7, 1)
 
 _DEFAULT_URL   = "http://localhost:8080"
 _POLL_INTERVAL = 5  # seconds
+# Layout proportions for console input row (must total 1.0)
+_INPUT_WIDTH = 0.55
+_SEND_WIDTH  = 0.20
+_MIC_WIDTH   = 0.125
+_TTS_WIDTH   = 0.125
+assert abs((_INPUT_WIDTH + _SEND_WIDTH + _MIC_WIDTH + _TTS_WIDTH) - 1.0) < 1e-6
 
 
 def _do_request(method: str, url: str, token: str, **kwargs):
@@ -280,6 +293,9 @@ if KIVY_OK:
             super().__init__(orientation="vertical", padding=16, spacing=8, **kwargs)
             self._settings = settings
             self._history  = []
+            self._voice: VoiceManager | None = None  # VoiceManager instance for TTS/STT
+            self._tts_enabled = True                 # TTS toggle state
+            self._listening = False                  # Voice input is running
 
             self.add_widget(Label(text="[b]Консоль команд[/b]", markup=True,
                                   color=_CYAN, size_hint_y=None, height=36))
@@ -297,14 +313,24 @@ if KIVY_OK:
             inp_row = BoxLayout(size_hint_y=None, height=44, spacing=8)
             self._cmd_input = TextInput(
                 hint_text="Введите команду...", multiline=False,
-                background_color=_CARD, size_hint_x=0.75,
+                background_color=_CARD, size_hint_x=_INPUT_WIDTH,
             )
             self._cmd_input.bind(on_text_validate=self._send)
-            btn = Button(text="▶ Выполнить", size_hint_x=0.25,
+            btn = Button(text="▶ Выполнить", size_hint_x=_SEND_WIDTH,
                          background_color=(0.1, 0.4, 0.8, 1))
             btn.bind(on_press=self._send)
+            mic_btn = Button(text="🎙 Ввод", size_hint_x=_MIC_WIDTH,
+                             background_color=(0.08, 0.42, 0.22, 1))
+            mic_btn.bind(on_press=self._start_voice)
+            self._mic_btn = mic_btn
+            tts_btn = Button(text="🔊 TTS: ON", size_hint_x=_TTS_WIDTH,
+                             background_color=(0.12, 0.24, 0.44, 1))
+            tts_btn.bind(on_press=self._toggle_tts)
+            self._tts_btn = tts_btn
             inp_row.add_widget(self._cmd_input)
             inp_row.add_widget(btn)
+            inp_row.add_widget(mic_btn)
+            inp_row.add_widget(tts_btn)
             self.add_widget(inp_row)
 
         def _send(self, *_):
@@ -338,10 +364,71 @@ if KIVY_OK:
                 return
             answer = data.get("answer", str(data)) if data else "—"
             Clock.schedule_once(lambda *_: self._append(f"  {answer}"))
+            if answer:
+                Clock.schedule_once(lambda *_: self._speak(answer))
 
         def _append(self, text: str, error: bool = False):
             self._output.color = _RED if error else _GREEN
             self._output.text += f"\n{text}"
+
+        def _start_voice(self, *_):
+            voice = self._ensure_voice()
+            if not voice:
+                self._append("⚠️ Голосовой модуль недоступен.", error=True)
+                return
+            if self._listening:
+                return
+            self._listening = True
+            self._mic_btn.text = "🎙 …"
+            threading.Thread(target=self._do_listen, daemon=True).start()
+
+        def _do_listen(self):
+            txt = ""
+            try:
+                voice = self._ensure_voice()
+                if voice:
+                    txt = voice.listen()
+            except Exception as exc:
+                txt = ""
+                Clock.schedule_once(lambda *_: self._append(f"❌ Голос: {exc}", error=True))
+            Clock.schedule_once(lambda *_: self._after_listen(txt))
+
+        def _after_listen(self, txt: str):
+            self._listening = False
+            self._mic_btn.text = "🎙 Ввод"
+            if txt:
+                self._cmd_input.text = txt
+                self._send()
+            else:
+                self._append("👂 Не распознано. Попробуйте снова.", error=True)
+
+        def _toggle_tts(self, *_):
+            self._tts_enabled = not self._tts_enabled
+            if self._voice:
+                self._voice.tts_enabled = self._tts_enabled
+            self._tts_btn.text = "🔊 TTS: ON" if self._tts_enabled else "🔇 TTS: OFF"
+
+        def _speak(self, text: str):
+            if not self._tts_enabled:
+                return
+            voice = self._ensure_voice()
+            if voice:
+                try:
+                    voice.speak(text)
+                except Exception:
+                    pass
+
+        def _ensure_voice(self) -> VoiceManager | None:
+            if not VOICE_OK:
+                return None
+            if self._voice is None:
+                try:
+                    self._voice = VoiceManager()
+                    self._voice.tts_enabled = self._tts_enabled
+                except Exception as exc:
+                    self._append(f"⚠️ Голос недоступен: {exc}", error=True)
+                    self._voice = None
+            return self._voice
 
     # ─────────────────────────────────────────────────────────────────────────
     # Main App
