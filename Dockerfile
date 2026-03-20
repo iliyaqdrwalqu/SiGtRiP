@@ -1,6 +1,5 @@
 # ── Build stage ──────────────────────────────────────────────────────────────
-# Pinned digest for python:3.11-slim — update periodically for security patches
-FROM python:3.11-slim@sha256:6d98ca198cea726f2c86da2699594339a7b7ff08e49728797b4ed6e3b5c3b62a AS builder
+FROM python:3.12-slim AS builder
 
 WORKDIR /build
 
@@ -22,13 +21,12 @@ RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 
 # ── Runtime stage ─────────────────────────────────────────────────────────────
-# Pinned digest for python:3.11-slim — update periodically for security patches
-FROM python:3.11-slim@sha256:6d98ca198cea726f2c86da2699594339a7b7ff08e49728797b4ed6e3b5c3b62a AS runtime
+FROM python:3.12-slim AS runtime
 
 LABEL org.opencontainers.image.title="Argos Universal OS" \
       org.opencontainers.image.description="Autonomous AI platform — headless/server mode" \
-      org.opencontainers.image.source="https://github.com/labuaqlysnecy/Argoss" \
-      org.opencontainers.image.version="1.4.0"
+      org.opencontainers.image.source="https://github.com/iliyaqdrwalqu/SiGtRiP" \
+      org.opencontainers.image.version="2.1.3"
 
 # Runtime system packages (audio libs keep TTS/STT from crashing silently)
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -61,6 +59,9 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/health', timeout=5)" \
      || python -c "import src.argos_logger; print('ok')" || exit 1
+
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
 
 # Default: headless server mode (no GUI required)
 CMD ["python", "main.py", "--no-gui"]

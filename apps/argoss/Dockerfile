@@ -18,8 +18,8 @@ FROM python:3.12-slim AS runtime
 
 LABEL org.opencontainers.image.title="ARGOS Universal OS"
 LABEL org.opencontainers.image.description="Автономная кроссплатформенная ИИ-система"
-LABEL org.opencontainers.image.version="2.0.0"
-LABEL org.opencontainers.image.source="https://github.com/iliyaqdrwalqu/Argoss"
+LABEL org.opencontainers.image.version="2.1.3"
+LABEL org.opencontainers.image.source="https://github.com/iliyaqdrwalqu/SiGtRiP"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 
 # Минимальные runtime-зависимости

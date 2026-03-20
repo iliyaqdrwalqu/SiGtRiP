@@ -28,7 +28,7 @@
 ## ⚡ Быстрый старт (5 минут)
 
 ```bash
-git clone https://github.com/iliyaqdrwalqu/Argoss.git && cd Argoss
+git clone https://github.com/iliyaqdrwalqu/SiGtRiP.git && cd SiGtRiP
 pip install -r requirements.txt
 cp .env.example .env          # → вставь GEMINI_API_KEY
 python genesis.py             # инициализация

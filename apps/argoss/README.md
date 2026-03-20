@@ -1,4 +1,4 @@
-# 👁️ ARGOS UNIVERSAL OS (v2.0.0)
+# 👁️ ARGOS UNIVERSAL OS (v2.1.3)
 [![🏗️ Build ARGOS APK](https://github.com/iliyaqdrwalqu/Argoss/actions/workflows/build_apk.yml/badge.svg)](https://github.com/iliyaqdrwalqu/Argoss/actions/workflows/build_apk.yml)
 [![🚀 ARGOS Release — Сборка и публикация релиза](https://github.com/iliyaqdrwalqu/Argoss/actions/workflows/release.yml/badge.svg)](https://github.com/iliyaqdrwalqu/Argoss/actions/workflows/release.yml)
 [![📊 ARGOS Status Report](https://github.com/iliyaqdrwalqu/Argoss/actions/workflows/status_report.yml/badge.svg)](https://github.com/iliyaqdrwalqu/Argoss/actions/workflows/status_report.yml)
@@ -10,9 +10,9 @@
 [![Android APK](https://github.com/iliyaqdrwalqu/Argoss/actions/workflows/android-apk.yml/badge.svg)](https://github.com/iliyaqdrwalqu/Argoss/actions/workflows/android-apk.yml)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iliyaqdrwalqu/Argoss/blob/main/colab/ARGOS_Colab_Launch.ipynb)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-# 👁️ ARGOS UNIVERSAL OS (v2.0.0)
+# 👁️ ARGOS UNIVERSAL OS (v2.1.3)
 
-> **Docker image:** `ghcr.io/iliyaqdrwalqu/sigtrip:latest` — published automatically on every push to `main`.  
+> **Docker image:** `ghcr.io/iliyaqdrwalqu/argoss:latest` — published automatically on every push to `main`.  
 > **Android APK:** download the latest debug APK from the [Actions tab](https://github.com/iliyaqdrwalqu/Argoss/actions/workflows/android-apk.yml) → select the most recent run → expand **Artifacts** → download `argos-apk-debug-<run_number>`.
 
 > *"Самовоспроизводящаяся кроссплатформенная экосистема ИИ с квантовой логикой,*
@@ -799,7 +799,7 @@ opcua browse ns=0;i=84             # обзор узлов OPC UA
 
 ```bash
 # Клонировать репозиторий
-git clone https://github.com/iliyaqdrwalqu/Argoss.git && cd Argoss
+git clone https://github.com/iliyaqdrwalqu/SiGtRiP.git && cd SiGtRiP
 
 # Скопировать и заполнить переменные окружения
 cp .env.example .env
@@ -818,7 +818,7 @@ docker-compose down
 ### Сборка образа вручную
 
 ```bash
-docker build -t argos-universal:2.1 .
+docker build -t argos-universal:2.1.3 .
 
 # Запуск контейнера напрямую
 docker run -d \
@@ -828,15 +828,15 @@ docker run -d \
   -v $(pwd)/logs:/app/logs \
   -v $(pwd)/config:/app/config \
   -v $(pwd)/data:/app/data \
-  argos-universal:2.1
+  argos-universal:2.1.3
 ```
 
 ### GitHub Container Registry (GHCR)
 
 ```bash
 # Публичный образ (после релиза)
-docker pull ghcr.io/iliyaqdrwalqu/sigtrip:latest
-docker run -d --env-file .env ghcr.io/iliyaqdrwalqu/sigtrip:latest
+docker pull ghcr.io/iliyaqdrwalqu/argoss:latest
+docker run -d --env-file .env ghcr.io/iliyaqdrwalqu/argoss:latest
 ```
 
 ---
