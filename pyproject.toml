@@ -16,6 +16,7 @@ argos = "main:main"
 
 [tool.setuptools]
 py-modules = ["main"]
+# Disable license-file metadata to avoid unsupported 'license-file' field in TestPyPI uploads
 license-files = []
 
 [tool.setuptools.dynamic]
