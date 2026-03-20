@@ -27,14 +27,14 @@ os.environ.setdefault("CYTHON_DEFAULT_LANGUAGE_LEVEL", "3")
 # ---------------------------------------------------------------------------
 
 def _patch_long_to_int(path: str) -> None:
-    """Replace ``isinstance(x, long)`` with ``isinstance(x, int)`` in *path*."""
+    """Replace all word-boundary occurrences of ``long`` with ``int`` in *path*.
+
+    This covers both function-call style (``long(x)``) and type-reference style
+    (``isinstance(x, long)``) that pyjnius uses for Python 2 compatibility.
+    """
     with open(path, "r", encoding="utf-8") as fh:
         src = fh.read()
-    patched = re.sub(
-        r"\bisinstance\(([^,]+),\s*long\)",
-        r"isinstance(\1, int)",
-        src,
-    )
+    patched = re.sub(r"\blong\b", "int", src)
     if patched == src:
         return
     with open(path, "w", encoding="utf-8") as fh:
@@ -46,8 +46,13 @@ def _patch_long_to_int(path: str) -> None:
 # p4a hook entry-points
 # ---------------------------------------------------------------------------
 
-def before_build(toolchain) -> None:
-    """Called by p4a before any recipe is built."""
+def before_apk_build(toolchain) -> None:
+    """Called by p4a before the APK is assembled (after recipe compilation).
+
+    At this stage recipes are already compiled; we use this hook as an extra
+    safety net to patch any pyjnius Python source files that may still reference
+    the Python-2-only ``long`` builtin.
+    """
     _fix_pyjnius(toolchain)
     _disable_android_incompatible_modules(toolchain)
 
