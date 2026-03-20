@@ -52,9 +52,12 @@ class AWACore:
         self.lazarus = self._init_lazarus()
         self.vision  = self._init_shadow_vision()
         self.swarm   = self._init_neural_swarm()
+        self.conduit = self._init_browser_conduit()
 
         log.info("AWA-Core v%s init | policy=%s | cascade_depth=%d",
                  self.VERSION, self._policy, self._cascade_depth_limit)
+        print("🫀 [AWA-CORE] Все системы жизнеобеспечения активированы.")
+        self._initial_evolution_step()
 
     def _init_lazarus(self):
         try:
@@ -88,7 +91,79 @@ class AWACore:
             log.warning("AWA: NeuralSwarm недоступен: %s", e)
             return None
 
-    def register(self, name, ref, *, priority=50, category="general", capabilities=None):
+    def _init_browser_conduit(self):
+        try:
+            from src.connectivity.browser_conduit import BrowserConduit
+            conduit = BrowserConduit(self.core)
+            log.info("AWA: BrowserConduit инициализирован")
+            return conduit
+        except Exception as e:
+            log.warning("AWA: BrowserConduit недоступен: %s", e)
+            return None
+
+    # ── ЭВОЛЮЦИОННЫЙ СТАРТ ───────────────────────────────────────────────────
+
+    def _initial_evolution_step(self) -> None:
+        """Первое действие при пробуждении: снимок состояния и проверка железа."""
+        if self.lazarus:
+            try:
+                self.lazarus.create_soul_mirror()
+            except Exception as e:
+                log.warning("AWA: _initial_evolution_step lazarus: %s", e)
+
+        if self.core and hasattr(self.core, "hardware_guard"):
+            try:
+                status = self.core.hardware_guard.get_status()
+                log.info("AWA: гомеостаз — %s", status)
+                print(f"⚛️ [AWA] Состояние гомеостаза: {status}")
+            except Exception as e:
+                log.debug("AWA: hardware_guard недоступен: %s", e)
+
+    # ── ДЕЛЕГИРОВАНИЕ ЗАДАЧ ──────────────────────────────────────────────────
+
+    def delegate_task(self, task_type: str, payload: Any) -> Any:
+        """
+        Маршрутизация задачи через NeuralSwarm.
+
+        Если ``task_type == "HEAVY_EVOLUTION"`` — запрос уходит к внешнему ИИ
+        через BrowserConduit; иначе задача исполняется локально с нужным GPU.
+        """
+        env = self.swarm.get_dispatch_env(task_type) if self.swarm else {}
+
+        if task_type == "HEAVY_EVOLUTION":
+            log.info("AWA delegate_task: критическая задача → внешний ИИ")
+            print("🚀 [AWA] Задача критической сложности. Обращаюсь к Внешнему Разуму...")
+            if self.conduit:
+                return self.conduit.ask_external_ai(payload)
+            return None
+
+        if self.core and hasattr(self.core, "ai_provider"):
+            try:
+                return self.core.ai_provider.execute(payload, env=env)
+            except Exception as e:
+                log.error("AWA delegate_task ai_provider: %s", e)
+        return self.route_task(str(payload))
+
+    # ── ПРОТОКОЛ КРИТИЧЕСКОГО СБОЯ ───────────────────────────────────────────
+
+    def on_critical_error(self, error_report: str) -> None:
+        """Экстренный бэкап и откат при угрозе системе."""
+        print(f"🚨 [AWA] Критический сбой: {error_report}")
+        log.error("AWA on_critical_error: %s", error_report)
+
+        if self.lazarus:
+            try:
+                self.lazarus.create_soul_mirror()
+            except Exception as e:
+                log.error("AWA on_critical_error lazarus: %s", e)
+
+        if self.core and hasattr(self.core, "git_ops"):
+            try:
+                self.core.git_ops.rollback()
+            except Exception as e:
+                log.error("AWA on_critical_error git_ops rollback: %s", e)
+
+
         desc = ModuleDescriptor(name, ref, priority, category, capabilities)
         with self._lock:
             self._modules[name] = desc

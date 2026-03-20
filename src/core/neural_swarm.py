@@ -111,6 +111,23 @@ class NeuralSwarm:
 
         return None
 
+    def get_dispatch_env(self, task_type: str) -> dict:
+        """
+        Возвращает копию os.environ с выставленными HIP/CUDA_VISIBLE_DEVICES
+        для заданного типа задачи.
+
+        :param task_type: Тип задачи (напр. "code_gen", "vision").
+        :returns:         Словарь переменных окружения для нужного GPU.
+        """
+        gpu_tier = "heavy" if task_type in _HEAVY_TASK_TYPES else "light"
+        gpu_id   = self.gpu_map[gpu_tier]
+        label    = "🧠 RX 580 (мозг)" if gpu_tier == "heavy" else "⚡ RX 560 (рефлексы)"
+        log.info("[NeuralSwarm] get_dispatch_env: '%s' → %s (GPU:%s)", task_type, label, gpu_id)
+        env = os.environ.copy()
+        env["HIP_VISIBLE_DEVICES"]  = gpu_id
+        env["CUDA_VISIBLE_DEVICES"] = gpu_id
+        return env
+
     # ── СТАТУС ───────────────────────────────────────────────────────────────
 
     def status(self) -> str:

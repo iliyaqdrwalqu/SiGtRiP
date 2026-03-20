@@ -12,6 +12,7 @@
 # ── Компьютерное зрение (src/vision.py, src/icon_generator.py)
 opencv-python>=4.9.0
 pyautogui>=0.9.54
+pyperclip>=1.8.2                # Буфер обмена (BrowserConduit.ask_external_ai)
 
 # ── Дополнительное распознавание речи / wake-word
 pvporcupine>=3.0.0              # Wake-word (требует ключ PicoVoice)
