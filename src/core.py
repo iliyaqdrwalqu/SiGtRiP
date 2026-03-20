@@ -236,6 +236,8 @@ class ArgosCore:
         self.web_explorer = None
         self.awa = None
         self.sustain = None
+        self.health_monitor = None
+        self.failover = None
 
         self._init_voice()
         self._setup_ai()
@@ -263,6 +265,8 @@ class ArgosCore:
         self._init_web_explorer()
         self._init_awa_core()
         self._init_sustain()
+        self._init_health_monitor()
+        self._init_ai_failover()
         log.info("ArgosCore FINAL v2.0 инициализирован.")
 
     # ═══════════════════════════════════════════════════════
@@ -520,6 +524,31 @@ class ArgosCore:
         except Exception as e:
             self.sustain = None
             log.warning("SelfSustain: %s", e)
+
+    def _init_health_monitor(self):
+        """Инициализация фонового мониторинга здоровья системы."""
+        try:
+            from src.health_monitor import HealthMonitor
+            alert_cb = getattr(self.alerts, 'send', None) if self.alerts else None
+            self.health_monitor = HealthMonitor(
+                db_path="data/argos.db",
+                alert_callback=alert_cb,
+            )
+            self.health_monitor.start()
+            log.info("HealthMonitor: OK")
+        except Exception as e:
+            self.health_monitor = None
+            log.warning("HealthMonitor: %s", e)
+
+    def _init_ai_failover(self):
+        """Инициализация модуля автоматического переключения AI-провайдеров."""
+        try:
+            from src.ai_failover import get_failover
+            self.failover = get_failover()
+            log.info("AIFailover: OK")
+        except Exception as e:
+            self.failover = None
+            log.warning("AIFailover: %s", e)
 
     def process(self, user_text: str, admin=None, flasher=None) -> dict:
         """Обёртка над process_logic с дефолтными значениями admin/flasher."""

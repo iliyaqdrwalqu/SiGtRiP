@@ -75,6 +75,7 @@ class AIFailover:
         self._stats: Dict[str, ProviderStats] = {
             name: ProviderStats(name=name) for name in _PROVIDER_ORDER
         }
+        self._order: List[str] = list(_PROVIDER_ORDER)  # instance-level copy
         self._lock  = asyncio.Lock()
 
     # ── Публичный API ──────────────────────────────────────────────────────
@@ -139,13 +140,12 @@ class AIFailover:
 
     def set_order(self, order: List[str]) -> None:
         """Переопределить порядок провайдеров."""
-        global _PROVIDER_ORDER
-        _PROVIDER_ORDER = [p for p in order if p in self._stats]
+        self._order = [p for p in order if p in self._stats]
 
     # ── Внутренняя логика ──────────────────────────────────────────────────
 
     def _build_order(self, prefer: Optional[str]) -> List[str]:
-        order = list(_PROVIDER_ORDER)
+        order = list(self._order)
         # Смотрим на ARGOS_AGENT_BACKEND для дефолтного провайдера
         env_backend = os.getenv("ARGOS_AGENT_BACKEND", "auto").lower()
         if env_backend != "auto" and env_backend in order:
