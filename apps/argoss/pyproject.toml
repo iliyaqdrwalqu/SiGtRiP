@@ -9,7 +9,7 @@ description = "ARGOS Universal OS — автономная кроссплатф�
 readme = "README.md"
 license = { file = "LICENSE" }
 authors = [{ name = "Vsevolod", email = "argos@sigtrip.dev" }]
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 
 keywords = [
     "ai", "agent", "iot", "autonomous", "p2p", "smart-home",
@@ -23,7 +23,7 @@ classifiers = [
     "Intended Audience :: System Administrators",
     "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.12",
     "Topic :: Home Automation",
     "Topic :: System :: Monitoring",
@@ -86,7 +86,7 @@ select = ["E", "F", "W", "I", "N"]
 ignore = ["E501", "N802", "N803", "N806"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.10"
 warn_return_any = true
 ignore_missing_imports = true
 

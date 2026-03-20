@@ -9,7 +9,7 @@
 
 | | Минимум | Рекомендуется |
 |---|---|---|
-| **Python** | 3.11 | 3.12 |
+| **Python** | 3.10 | 3.12 |
 | **RAM** | 512 MB | 2 GB+ |
 | **Диск** | 1 GB | 4 GB |
 | **ОС** | Windows 10 / Ubuntu 20.04 / macOS 12 | любая |
@@ -222,7 +222,7 @@ curl http://localhost:8080/api/v2/queue \
 
 ### Python не найден / старая версия
 ```bash
-python --version   # нужен >= 3.11
+python --version   # нужен >= 3.10
 # Ubuntu:
 sudo apt install python3.12 python3.12-venv
 ```

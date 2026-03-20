@@ -27,10 +27,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Настройка Python 3.11
+      - name: Настройка Python 3.10
         uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
+          python-version: '3.10'
 
       - name: Установка зависимостей для сборки
         run: pip install -q setuptools wheel
