@@ -23,7 +23,3 @@ dependencies = { file = ["requirements.txt"] }
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["src*"]
-
-[tool.setuptools.build_ext]
-# Ensure Cython sources are compiled with Python 3 semantics.
-define = ["CYTHON_LANGUAGE_LEVEL=3"]
