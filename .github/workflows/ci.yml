@@ -38,6 +38,23 @@ jobs:
         echo "Build contents:"
         ls -l "${GITHUB_WORKSPACE}/dist"
 
+        # The repository contains a local build.py script that scaffolds files but
+        # does not create a dist/ directory. Run it first, then use the real
+        # packaging tool (pypa/build) while removing the current directory from
+        # sys.path to avoid the local module shadowing the installed package.
+        python build.py
+        python -m pip install --upgrade build
+        python - <<'PY'
+        import sys, runpy
+
+        # Drop current working directory so the installed `build` package is used
+        # instead of the local build.py module.
+        sys.path = sys.path[1:]
+        sys.argv = ["build", "--outdir", "dist"]
+        runpy.run_module("build", run_name="__main__")
+        PY
+
+
     - name: List artifacts
       run: |
         if [ ! -d dist ]; then
