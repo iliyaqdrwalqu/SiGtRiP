@@ -26,8 +26,7 @@ android.permissions = INTERNET,BLUETOOTH_ADMIN,NFC,READ_EXTERNAL_STORAGE,WRITE_E
 android.api = 33
 android.minapi = 24
 android.ndk = 25b
-android.sdk = 33
-android.arch = arm64-v8a
+android.archs = arm64-v8a
 
 # [FIX-SAI-FILEPROVIDER]
 # Добавляем FileProvider чтобы SAI видел DISPLAY_NAME при установке APK.
