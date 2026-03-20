@@ -52,7 +52,7 @@ _GRAY = (0.5, 0.6, 0.7, 1)
 
 _DEFAULT_URL   = "http://localhost:8080"
 _POLL_INTERVAL = 5  # seconds
-# Layout proportions for console input row (should total ~1.0)
+# Layout proportions for console input row (must total 1.0)
 _INPUT_WIDTH = 0.55
 _SEND_WIDTH  = 0.20
 _MIC_WIDTH   = 0.125

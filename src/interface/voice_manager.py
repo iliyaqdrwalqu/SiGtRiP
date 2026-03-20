@@ -53,8 +53,10 @@ IS_ANDROID = (
     or "ANDROID_ARGUMENTS" in os.environ
     or "ANDROID_ROOT" in os.environ
 )
+# Energy threshold for speech_recognition microphone calibration
+# (higher = less sensitive to ambient noise). 300 matches SR defaults.
 DEFAULT_ENERGY_THRESHOLD = 300
-DEFAULT_LANG = os.getenv("ARGOS_VOICE_LANG", "ru-RU")
+DEFAULT_LANG = os.getenv("ARGOS_VOICE_LANGUAGE", os.getenv("ARGOS_VOICE_LANG", "ru-RU"))
 
 
 if JNIUS_OK:

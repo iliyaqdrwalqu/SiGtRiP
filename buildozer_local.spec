@@ -4,7 +4,7 @@
 title = ARGOS Local Node
 package.name = argos_local
 package.domain = org.iliyaqdrwalqu.argos
-# keep in sync with buildozer.spec
+# keep manually in sync with buildozer.spec
 version = 2.1
 
 # Source

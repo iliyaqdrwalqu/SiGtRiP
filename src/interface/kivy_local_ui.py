@@ -90,6 +90,7 @@ except Exception:
     PLYER_FC_OK = False
 
 MAX_CMD_OUTPUT = 1200
+# Limit command output displayed in UI to avoid giant scrollable logs
 
 
 if KIVY_OK:
