@@ -176,30 +176,28 @@ jobs:
           find .buildozer -name "*.c" -delete 2>/dev/null || true
           find .buildozer -name "*.so" -delete 2>/dev/null || true
 
-      - name: Set language_level=3 in cached .pyx/.pxi files (Cython pre-step)
-        # Add the '# cython: language_level=3' directive to any .pyx or .pxi
-        # file in the buildozer cache that lacks it.  Without this directive
-        # Cython defaults to Python 2 semantics and produces:
-        #   "Declarator should be empty" errors in pyjnius .pxi files, and
+      - name: Set language_level=3 in cached .pyx files (Cython pre-step)
+        # Add the '# cython: language_level=3' directive to any .pyx file in
+        # the buildozer cache that lacks it.  This prevents the warning:
         #   "Cython directive 'language_level' not set, using 2 for now (Py2)."
+        # and avoids Python 2 / Python 3 semantic mismatches during compilation.
         run: |
           python3 - <<'PYEOF'
           from pathlib import Path
 
           directive = "# cython: language_level=3\n"
           patched_count = 0
-          cache_root = Path(".buildozer")
-          for cython_file in list(cache_root.rglob("*.pyx")) + list(cache_root.rglob("*.pxi")):
+          for pyx in Path(".buildozer").rglob("*.pyx"):
               try:
-                  text = cython_file.read_text(encoding="utf-8", errors="replace")
+                  text = pyx.read_text(encoding="utf-8", errors="replace")
                   if "language_level" not in text:
-                      cython_file.write_text(directive + text, encoding="utf-8")
-                      print(f"[cython-pre] Added language_level=3 to: {cython_file}")
+                      pyx.write_text(directive + text, encoding="utf-8")
+                      print(f"[cython-pre] Added language_level=3 to: {pyx}")
                       patched_count += 1
               except OSError as e:
-                  print(f"[cython-pre] WARNING: Could not patch {cython_file}: {e}")
+                  print(f"[cython-pre] WARNING: Could not patch {pyx}: {e}")
 
-          print(f"[cython-pre] Patched {patched_count} Cython file(s).")
+          print(f"[cython-pre] Patched {patched_count} .pyx file(s).")
           PYEOF
 
       - name: Patch cached pyjnius source (long → int for Python 3 / Cython 3)

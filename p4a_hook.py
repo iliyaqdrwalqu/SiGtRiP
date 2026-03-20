@@ -2,9 +2,6 @@
 python-for-android build hook.
 
 Applies patches required to build pyjnius with modern Cython + Python 3:
-  - Injects ``# cython: language_level=3`` into jnius.pyx and all .pxi files
-    so Cython does not default to Python 2 semantics (which causes
-    "Declarator should be empty" errors in pyjnius 1.6.1 on Python 3.10).
   - Replaces the Python-2-only ``long`` built-in with ``int`` in
     ``jnius_utils.pxi`` so Cython 3.x / Python 3 can compile it.
 
@@ -23,8 +20,6 @@ import re
 
 # Ensure third-party Cython builds default to Python 3 semantics during recipe compilation.
 os.environ.setdefault("CYTHON_DEFAULT_LANGUAGE_LEVEL", "3")
-
-_LANGUAGE_LEVEL_DIRECTIVE = "# cython: language_level=3\n"
 
 
 # ---------------------------------------------------------------------------
@@ -45,23 +40,6 @@ def _patch_long_to_int(path: str) -> None:
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(patched)
     print(f"[p4a_hook] Patched 'long' -> 'int' in: {path}")
-
-
-def _inject_language_level(path: str) -> None:
-    """Prepend ``# cython: language_level=3`` to *path* if not already present.
-
-    This prevents Cython from defaulting to Python 2 semantics, which causes
-    "Declarator should be empty" errors when compiling pyjnius 1.6.1 under
-    Python 3.10 with Cython 0.29.x.
-    """
-    with open(path, "r", encoding="utf-8") as fh:
-        src = fh.read()
-    if "language_level" in src:
-        return
-    with open(path, "w", encoding="utf-8") as fh:
-        fh.write(_LANGUAGE_LEVEL_DIRECTIVE + src)
-    print(f"[p4a_hook] Injected language_level=3 into: {path}")
-
 
 def _patch_jni_jlong(path: str) -> None:
     """Replace invalid ``ctypedef int int jlong`` definition with ``long``."""
@@ -96,11 +74,11 @@ def before_apk_build(toolchain) -> None:
 
 def _fix_pyjnius(toolchain) -> None:
     """
-    Patch pyjnius source files for Python 3 / Cython 3 compatibility:
-      - Inject ``# cython: language_level=3`` into .pyx and .pxi files to
-        prevent "Declarator should be empty" errors.
-      - Replace ``long`` with ``int`` in jnius_utils.pxi (Python-2-only builtin).
-      - Fix ``ctypedef int int jlong`` typedef in jni.pxi.
+    Patch jnius_utils.pxi to remove the Python-2-only ``long`` built-in.
+
+    Cython 3 raises ``undeclared name not builtin: long`` because ``long``
+    no longer exists in Python 3.  Replace every occurrence of
+    ``isinstance(x, long)`` with ``isinstance(x, int)``.
     """
     storage = getattr(toolchain, "storage_dir", None) or ""
     search_roots = [
@@ -112,16 +90,10 @@ def _fix_pyjnius(toolchain) -> None:
         if not root:
             continue
         for match in glob.glob(
-            os.path.join(root, "**", "jnius*.pxi"), recursive=True
+            os.path.join(root, "**", "jnius_utils.pxi"), recursive=True
         ):
-            _inject_language_level(match)
             _patch_long_to_int(match)
-        for match in glob.glob(
-            os.path.join(root, "**", "jnius*.pyx"), recursive=True
-        ):
-            _inject_language_level(match)
         for match in glob.glob(os.path.join(root, "**", "jni.pxi"), recursive=True):
-            _inject_language_level(match)
             _patch_jni_jlong(match)
 
 
