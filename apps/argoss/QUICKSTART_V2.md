@@ -22,7 +22,7 @@
 
 ```bash
 git clone https://github.com/iliyaqdrwalqu/Argoss.git
-cd Argoss
+cd SiGtRiP
 ```
 
 ### Шаг 2 — Установить зависимости
@@ -78,7 +78,7 @@ python main.py              # запустить с Desktop GUI
 
 ```bash
 git clone https://github.com/iliyaqdrwalqu/Argoss.git
-cd Argoss
+cd SiGtRiP
 cp .env.example .env
 # Отредактировать .env
 nano .env
