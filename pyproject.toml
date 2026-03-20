@@ -16,6 +16,7 @@ argos = "main:main"
 
 [tool.setuptools]
 py-modules = ["main"]
+license-files = []
 
 [tool.setuptools.dynamic]
 dependencies = { file = ["requirements.txt"] }
