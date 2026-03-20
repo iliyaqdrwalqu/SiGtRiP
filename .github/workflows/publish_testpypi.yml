@@ -3,7 +3,14 @@ name: 📦 Publish to TestPyPI
 
 # Publishes argos-universalsigtrip to TestPyPI via OIDC Trusted Publishing.
 # No PYPI_TOKEN required — authentication is handled by GitHub's OIDC provider.
-# One-time setup steps are listed in this header for convenience.
+# One-time setup on https://test.pypi.org (Trusted Publishing):
+#   1. Log in and go to your account → Publishing → Add a new publisher
+#   2. Fill in:
+#      - PyPI project name: argos-universalsigtrip
+#      - Owner:             iliyaqdrwalqu
+#      - Repository:        Argoss
+#      - Workflow file:     publish_testpypi.yml
+#      - Environment name:  (leave blank)
 
 on:
   workflow_dispatch:
