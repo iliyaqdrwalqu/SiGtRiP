@@ -148,7 +148,7 @@ if KIVY_OK:
                 Clock.schedule_once(lambda *_: setattr(self._list, "text", text))
                 Clock.schedule_once(lambda *_: setattr(self._log, "text", "✅ Скан завершён."))
             except Exception as exc:
-                Clock.schedule_once(lambda *_: setattr(self._log, "text", f"❌ Ошибка: {exc}"))
+                Clock.schedule_once(lambda *_, e=exc: setattr(self._log, "text", f"❌ Ошибка: {e}"))
 
         @_async
         def toggle_monitor(self):
@@ -219,7 +219,7 @@ if KIVY_OK:
                 res = self._mgr.request_elevation()
                 Clock.schedule_once(lambda *_: setattr(self._info, "text", res))
             except Exception as exc:
-                Clock.schedule_once(lambda *_: setattr(self._info, "text", f"❌ {exc}"))
+                Clock.schedule_once(lambda *_, e=exc: setattr(self._info, "text", f"❌ {e}"))
 
 
     class FilesPanel(BoxLayout):
@@ -398,7 +398,7 @@ if KIVY_OK:
                 Clock.schedule_once(lambda *_: setattr(self._info, "text", f"OTG поддержка: {'✅' if supported else '❌'}"))
                 Clock.schedule_once(lambda *_: setattr(self._list, "text", "\n".join(lines)))
             except Exception as exc:
-                Clock.schedule_once(lambda *_: setattr(self._info, "text", f"❌ {exc}"))
+                Clock.schedule_once(lambda *_, e=exc: setattr(self._info, "text", f"❌ {e}"))
 
 
     class FlasherPanel(BoxLayout):
@@ -434,7 +434,7 @@ if KIVY_OK:
                 Clock.schedule_once(lambda *_: setattr(self._list, "text", "\n".join(ports)))
                 Clock.schedule_once(lambda *_: setattr(self._info, "text", "✅ Порты обновлены."))
             except Exception as exc:
-                Clock.schedule_once(lambda *_: setattr(self._info, "text", f"❌ {exc}"))
+                Clock.schedule_once(lambda *_, e=exc: setattr(self._info, "text", f"❌ {e}"))
 
         @_async
         def _detect(self):
@@ -446,7 +446,7 @@ if KIVY_OK:
                 Clock.schedule_once(lambda *_: setattr(self._list, "text", rep))
                 Clock.schedule_once(lambda *_: setattr(self._info, "text", "✅ Детект выполнен."))
             except Exception as exc:
-                Clock.schedule_once(lambda *_: setattr(self._info, "text", f"❌ {exc}"))
+                Clock.schedule_once(lambda *_, e=exc: setattr(self._info, "text", f"❌ {e}"))
 
 
     class ArgosLocalApp(App):
