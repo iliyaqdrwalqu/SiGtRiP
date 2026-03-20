@@ -53,6 +53,7 @@ class AWACore:
         self.vision  = self._init_shadow_vision()
         self.swarm   = self._init_neural_swarm()
         self.conduit = self._init_browser_conduit()
+        self.snitch  = self._init_air_snitch()
 
         log.info("AWA-Core v%s init | policy=%s | cascade_depth=%d",
                  self.VERSION, self._policy, self._cascade_depth_limit)
@@ -101,6 +102,20 @@ class AWACore:
             log.warning("AWA: BrowserConduit недоступен: %s", e)
             return None
 
+    def _init_air_snitch(self):
+        try:
+            from src.connectivity.air_snitch import AirSnitch
+            snitch = AirSnitch(self.core)
+            if os.getenv("ARGOS_SDR_AUTOSTART") == "on":
+                snitch.start_sniffing()
+                log.info("AWA: AirSnitch автостарт включён")
+            else:
+                log.info("AWA: AirSnitch инициализирован (автостарт выкл)")
+            return snitch
+        except Exception as e:
+            log.warning("AWA: AirSnitch недоступен: %s", e)
+            return None
+
     # ── ЭВОЛЮЦИОННЫЙ СТАРТ ───────────────────────────────────────────────────
 
     def _initial_evolution_step(self) -> None:
@@ -136,6 +151,12 @@ class AWACore:
             if self.conduit:
                 return self.conduit.ask_external_ai(payload)
             return None
+
+        if task_type == "RADIO_SCAN":
+            log.info("AWA delegate_task: запуск радиосканирования")
+            if self.snitch:
+                return self.snitch.start_sniffing()
+            return "⚠️ AWA: AirSnitch недоступен"
 
         if self.core and hasattr(self.core, "ai_provider"):
             try:
