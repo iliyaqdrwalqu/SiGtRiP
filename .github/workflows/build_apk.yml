@@ -1,4 +1,4 @@
-name: 🏗️ Build ARGOS APK
+name: 🏗️ Build ARGOS Client APK
 
 on:
   push:
@@ -115,7 +115,7 @@ jobs:
   # Depends on both lint jobs; builds after code quality gates pass.
   # ───────────────────────────────────────────────────────────────────────────
   build-apk:
-    name: Build Android APK (${{ github.event.inputs.release_mode || 'debug' }})
+    name: Build Client APK (${{ github.event.inputs.release_mode || 'debug' }})
     runs-on: ubuntu-22.04
     needs: [lint-python, lint-cython]
     permissions:
@@ -247,7 +247,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: argos-apk-${{ github.event.inputs.release_mode || 'debug' }}-${{ github.run_number }}
+          name: argos-client-apk-${{ github.event.inputs.release_mode || 'debug' }}-${{ github.run_number }}
           path: bin/*.apk
           if-no-files-found: warn
           retention-days: 30
