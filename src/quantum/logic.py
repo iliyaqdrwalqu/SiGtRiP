@@ -21,6 +21,34 @@ class QuantumEngine:
     def __init__(self):
         self.current = "Analytic"
         self._ts = time.time()
+        self.evidence: dict = {
+            "user_active": False,
+            "cpu_load": 0.0,
+            "ram_load": 0.0,
+        }
+
+    def _effective_metric(self, cpu: float, ram: float) -> float:
+        """Return a combined load metric in [0, 1] range."""
+        return max(cpu, ram) / 100.0
+
+    def _is_user_active(self) -> bool:
+        """Detect user activity via psutil process count heuristic."""
+        if not _PSUTIL:
+            return False
+        try:
+            return psutil.cpu_percent(interval=0.05) > 5.0
+        except Exception:
+            return False
+
+    def _update_evidence(self) -> None:
+        """Update evidence dict with current sensor readings."""
+        self.evidence["user_active"] = self._is_user_active()
+        if _PSUTIL:
+            try:
+                self.evidence["cpu_load"] = psutil.cpu_percent(interval=0.05)
+                self.evidence["ram_load"] = psutil.virtual_memory().percent
+            except Exception:
+                pass
 
     def generate_state(self) -> dict:
         self._auto_switch()

@@ -1366,7 +1366,7 @@ class ArgosCore:
         t = text.lower()
 
         # ── Интернет-обучение (бесплатно) ────────────────────
-        if self.web_explorer and any(k in t for k in [
+        if getattr(self, "web_explorer", None) and any(k in t for k in [
             "изучи ", "изучи интернет", "найди в интернете", "поищи в интернете",
             "погугли ", "поищи ", "найди информацию", "learn ", "search web",
             "что такое ", "расскажи про ", "расскажи о ",
@@ -1386,19 +1386,19 @@ class ArgosCore:
                 return self.web_explorer.learn(topic.strip())
             return self.web_explorer.status()
 
-        if self.web_explorer and any(k in t for k in [
+        if getattr(self, "web_explorer", None) and any(k in t for k in [
             "веб статус", "web статус", "интернет статус", "explorer status",
         ]):
             return self.web_explorer.status()
 
-        if self.web_explorer and any(k in t for k in [
+        if getattr(self, "web_explorer", None) and any(k in t for k in [
             "открой страницу ", "загрузи страницу ", "fetch ", "прочитай сайт ",
         ]):
             url = text.split()[-1] if text.split() else ""
             if url.startswith("http"):
                 return self.web_explorer.fetch_page(url)
 
-        if self.web_explorer and any(k in t for k in [
+        if getattr(self, "web_explorer", None) and any(k in t for k in [
             "найди на github", "github поиск", "github search",
         ]):
             query = text
@@ -1408,7 +1408,7 @@ class ArgosCore:
                     break
             return self.web_explorer.search_github(query) or "GitHub: ничего не найдено."
 
-        if self.web_explorer and any(k in t for k in [
+        if getattr(self, "web_explorer", None) and any(k in t for k in [
             "найди статью", "arxiv поиск", "arxiv search", "научная статья",
         ]):
             query = text
@@ -1419,19 +1419,19 @@ class ArgosCore:
             return self.web_explorer.search_arxiv(query) or "arXiv: статей не найдено."
 
         # ── Самообеспечение ──────────────────────────────────
-        if self.sustain and any(k in t for k in [
+        if getattr(self, "sustain", None) and any(k in t for k in [
             "самообеспечение статус", "sustain status", "статус обучения",
         ]):
             return self.sustain.status()
-        if self.sustain and any(k in t for k in [
+        if getattr(self, "sustain", None) and any(k in t for k in [
             "самообеспечение вкл", "sustain on", "начни учиться",
         ]):
             return self.sustain.start()
-        if self.sustain and any(k in t for k in [
+        if getattr(self, "sustain", None) and any(k in t for k in [
             "самообеспечение выкл", "sustain off",
         ]):
             return self.sustain.stop()
-        if self.sustain and any(k in t for k in [
+        if getattr(self, "sustain", None) and any(k in t for k in [
             "учись сейчас", "learn now", "обучись",
         ]):
             topic_part = text
@@ -1440,17 +1440,17 @@ class ArgosCore:
                     topic_part = text[t.find(marker) + len(marker):].strip()
                     break
             return self.sustain.learn_now(topic_part or "")
-        if self.sustain and any(k in t for k in [
+        if getattr(self, "sustain", None) and any(k in t for k in [
             "бесплатные ресурсы", "free resources", "что бесплатно",
         ]):
             return self.sustain.free_resources_report()
 
         # ── AWA Model Splitting ───────────────────────────────
-        if self.awa and any(k in t for k in [
+        if getattr(self, "awa", None) and any(k in t for k in [
             "awa статус", "awa status", "маршрутизатор статус",
         ]):
             return self.awa.status()
-        if self.awa and any(k in t for k in [
+        if getattr(self, "awa", None) and any(k in t for k in [
             "awa задача ", "awa task ", "route task ",
         ]):
             task_part = text
@@ -1481,7 +1481,7 @@ class ArgosCore:
             return self.context.compress_memory(ask_fn)
 
         # ── Глубокий анализ (Idle Cycle) ─────────────────────
-        if self.curiosity and any(k in t for k in [
+        if getattr(self, "curiosity", None) and any(k in t for k in [
             "глубокий анализ", "idle cycle", "deep analysis",
             "любопытство анализ",
         ]):
@@ -1516,33 +1516,33 @@ class ArgosCore:
         ]):
             return self._ai_modes_diagnostic()
 
-        if self._homeostasis_block_heavy and any(k in t for k in [
+        if getattr(self, "_homeostasis_block_heavy", False) and any(k in t for k in [
             "посмотри на экран", "что на экране", "посмотри в камеру", "анализ фото",
             "проанализируй изображение", "компиля", "compile", "создай прошивку", "прошей шлюз", "прошей gateway"
         ]):
             return "🔥 Гомеостаз: тяжёлая операция временно заблокирована (режим Protective/Unstable)."
 
-        if self.homeostasis and any(k in t for k in ["гомеостаз статус", "статус гомеостаза", "homeostasis status"]):
+        if getattr(self, "homeostasis", None) and any(k in t for k in ["гомеостаз статус", "статус гомеостаза", "homeostasis status"]):
             return self.homeostasis.status()
-        if self.homeostasis and any(k in t for k in ["гомеостаз вкл", "включи гомеостаз", "homeostasis on"]):
+        if getattr(self, "homeostasis", None) and any(k in t for k in ["гомеостаз вкл", "включи гомеостаз", "homeostasis on"]):
             return self.homeostasis.start()
-        if self.homeostasis and any(k in t for k in ["гомеостаз выкл", "выключи гомеостаз", "homeostasis off"]):
+        if getattr(self, "homeostasis", None) and any(k in t for k in ["гомеостаз выкл", "выключи гомеостаз", "homeostasis off"]):
             return self.homeostasis.stop()
 
-        if self.curiosity and any(k in t for k in ["любопытство статус", "статус любопытства", "curiosity status"]):
+        if getattr(self, "curiosity", None) and any(k in t for k in ["любопытство статус", "статус любопытства", "curiosity status"]):
             return self.curiosity.status()
-        if self.curiosity and any(k in t for k in ["любопытство вкл", "включи любопытство", "curiosity on"]):
+        if getattr(self, "curiosity", None) and any(k in t for k in ["любопытство вкл", "включи любопытство", "curiosity on"]):
             return self.curiosity.start()
-        if self.curiosity and any(k in t for k in ["любопытство выкл", "выключи любопытство", "curiosity off"]):
+        if getattr(self, "curiosity", None) and any(k in t for k in ["любопытство выкл", "выключи любопытство", "curiosity off"]):
             return self.curiosity.stop()
-        if self.curiosity and any(k in t for k in ["любопытство сейчас", "curiosity now"]):
+        if getattr(self, "curiosity", None) and any(k in t for k in ["любопытство сейчас", "curiosity now"]):
             return self.curiosity.ask_now()
 
-        if self.git_ops and any(k in t for k in ["git статус", "гит статус", "git status"]):
+        if getattr(self, "git_ops", None) and any(k in t for k in ["git статус", "гит статус", "git status"]):
             return self.git_ops.status()
-        if self.git_ops and any(k in t for k in ["git пуш", "гит пуш", "git push"]):
+        if getattr(self, "git_ops", None) and any(k in t for k in ["git пуш", "гит пуш", "git push"]):
             return self.git_ops.push()
-        if self.git_ops and any(k in t for k in ["git автокоммит и пуш", "гит автокоммит и пуш", "git auto push", "git commit and push"]):
+        if getattr(self, "git_ops", None) and any(k in t for k in ["git автокоммит и пуш", "гит автокоммит и пуш", "git auto push", "git commit and push"]):
             msg = text
             for marker in ["git автокоммит и пуш", "гит автокоммит и пуш", "git auto push", "git commit and push"]:
                 if marker in msg.lower():
@@ -1552,7 +1552,7 @@ class ArgosCore:
             if not msg:
                 msg = "chore: argos autonomous update"
             return self.git_ops.commit_and_push(msg)
-        if self.git_ops and (t.startswith("git коммит ") or t.startswith("гит коммит ") or t.startswith("git commit ")):
+        if getattr(self, "git_ops", None) and (t.startswith("git коммит ") or t.startswith("гит коммит ") or t.startswith("git commit ")):
             msg = text
             for marker in ["git коммит", "гит коммит", "git commit"]:
                 if marker in msg.lower():
@@ -1586,10 +1586,10 @@ class ArgosCore:
         if any(k in t for k in ["оператор восстановление", "сценарий восстановление"]):
             return self._operator_recovery()
 
-        if self.module_loader and any(k in t for k in ["модули", "список модулей", "modules"]):
+        if getattr(self, "module_loader", None) and any(k in t for k in ["модули", "список модулей", "modules"]):
             return self.module_loader.list_modules()
 
-        if self.tool_calling and any(k in t for k in ["схемы инструментов", "tool schema", "tool calling schema", "json схемы инструментов"]):
+        if getattr(self, "tool_calling", None) and any(k in t for k in ["схемы инструментов", "tool schema", "tool calling schema", "json схемы инструментов"]):
             return json.dumps(self.tool_calling.tool_schemas(), ensure_ascii=False, indent=2)
 
         # ── Мастер создания умной системы (пошаговый) ─────
@@ -1974,15 +1974,15 @@ class ArgosCore:
             return self.start_wake_word(admin, flasher)
 
         # ── Навыки ────────────────────────────────────────
-        if self.skill_loader and any(k in t for k in ["навыки v2", "skills v2", "skillloader"]):
+        if getattr(self, "skill_loader", None) and any(k in t for k in ["навыки v2", "skills v2", "skillloader"]):
             return self.skill_loader.list_skills()
-        if self.skill_loader and t.startswith("загрузи навык "):
+        if getattr(self, "skill_loader", None) and t.startswith("загрузи навык "):
             name = text.split("загрузи навык ", 1)[-1].strip()
             return self.skill_loader.load(name, core=self)
-        if self.skill_loader and t.startswith("выгрузи навык "):
+        if getattr(self, "skill_loader", None) and t.startswith("выгрузи навык "):
             name = text.split("выгрузи навык ", 1)[-1].strip()
             return self.skill_loader.unload(name)
-        if self.skill_loader and t.startswith("перезагрузи навык "):
+        if getattr(self, "skill_loader", None) and t.startswith("перезагрузи навык "):
             name = text.split("перезагрузи навык ", 1)[-1].strip()
             return self.skill_loader.reload(name, core=self)
 
@@ -2192,40 +2192,40 @@ class ArgosCore:
             return "P2P не запущен."
 
         # ── DAG ───────────────────────────────────────────
-        if self.dag_manager and any(k in t for k in ["список dag", "dag список", "доступные dag"]):
+        if getattr(self, "dag_manager", None) and any(k in t for k in ["список dag", "dag список", "доступные dag"]):
             return self.dag_manager.list_dags()
-        if self.dag_manager and ("запусти_dag" in t or "запусти dag" in t):
+        if getattr(self, "dag_manager", None) and ("запусти_dag" in t or "запусти dag" in t):
             name = text.replace("запусти_dag", "").replace("запусти dag", "").strip()
             name = name.replace(".json", "")
             name = name.split("/")[-1]
             if not name:
                 return "Формат: запусти_dag имя_графа"
             return self.dag_manager.run(name)
-        if self.dag_manager and ("создай_dag" in t or "создай dag" in t):
+        if getattr(self, "dag_manager", None) and ("создай_dag" in t or "создай dag" in t):
             desc = text.replace("создай_dag", "").replace("создай dag", "").strip()
             if not desc:
                 return "Формат: создай_dag описание шагов"
             return self.dag_manager.create_from_text(desc)
-        if self.dag_manager and any(k in t for k in ["синхронизируй dag", "dag sync"]):
+        if getattr(self, "dag_manager", None) and any(k in t for k in ["синхронизируй dag", "dag sync"]):
             return self.dag_manager.sync_to_p2p()
 
         # ── GitHub Marketplace ────────────────────────────
-        if self.marketplace and "установи навык из github" in t:
+        if getattr(self, "marketplace", None) and "установи навык из github" in t:
             spec = text.split("установи навык из github", 1)[-1].strip().split()
             if len(spec) < 2:
                 return "Формат: установи навык из github USER/REPO SKILL"
             return self.marketplace.install(repo=spec[0], skill_name=spec[1])
-        if self.marketplace and "обнови из github" in t:
+        if getattr(self, "marketplace", None) and "обнови из github" in t:
             spec = text.split("обнови из github", 1)[-1].strip().split()
             if len(spec) < 2:
                 return "Формат: обнови из github USER/REPO SKILL"
             return self.marketplace.update(repo=spec[0], skill_name=spec[1])
-        if self.marketplace and "оцени навык" in t:
+        if getattr(self, "marketplace", None) and "оцени навык" in t:
             spec = text.split("оцени навык", 1)[-1].strip().split()
             if len(spec) < 2:
                 return "Формат: оцени навык SKILL [1-5]"
             return self.marketplace.rate(spec[0], spec[1])
-        if self.marketplace and any(k in t for k in ["рейтинг навыков", "оценки навыков"]):
+        if getattr(self, "marketplace", None) and any(k in t for k in ["рейтинг навыков", "оценки навыков"]):
             return self.marketplace.ratings_report()
 
         # ── История ───────────────────────────────────────
