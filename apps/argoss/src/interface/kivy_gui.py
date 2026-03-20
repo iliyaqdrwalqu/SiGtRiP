@@ -1,5 +1,5 @@
 """
-kivy_gui.py — ARGOS v1.4.0 Kivy UI (Sovereign Emerald)
+kivy_gui.py — ARGOS v2.1 Kivy UI (Sovereign Emerald)
 Запуск: python main.py --mobile
 
 ПАТЧ [FIX-KV-INDENT]:
@@ -32,7 +32,7 @@ if KIVY_OK:
     spacing: "8dp"
 
     Label:
-        text: "\u0422\u0435\u043a\u0441\u0442: ARGOS SOVEREIGN v1.4.0"
+        text: "\u0422\u0435\u043a\u0441\u0442: ARGOS SOVEREIGN v2.1"
         size_hint_y: None
         height: "48dp"
         font_size: "20sp"
@@ -74,7 +74,7 @@ if KIVY_OK:
         size_hint_y: 0.45
         Label:
             id: console
-            text: "> Initializing v1.4.0...\\n> All systems operational."
+            text: "> Initializing v2.1...\\n> All systems operational."
             size_hint_y: None
             height: self.texture_size[1]
             halign: "left"

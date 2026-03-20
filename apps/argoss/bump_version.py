@@ -11,8 +11,8 @@ import sys
 import argparse
 from pathlib import Path
 
-OLD = "1.4.0"
-NEW = "2.0.0"
+OLD = "2.1.0"
+NEW = "2.1.0"
 
 # Файл → (паттерн для поиска, заменяемая строка)
 TARGETS = [

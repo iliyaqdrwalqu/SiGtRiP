@@ -20,7 +20,7 @@ from src.argos_logger import get_logger
 
 log = get_logger("argos.fastapi_dashboard")
 
-ARGOS_VERSION = "1.4.0"
+ARGOS_VERSION = "2.1"
 
 
 class FastAPIDashboard:

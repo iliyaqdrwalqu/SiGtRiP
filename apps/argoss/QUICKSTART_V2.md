@@ -92,14 +92,14 @@ docker-compose logs -f argos_node
 **Или через GHCR (готовый образ):**
 
 ```bash
-docker pull ghcr.io/iliyaqdrwalqu/argoss:2.0.0
+docker pull ghcr.io/iliyaqdrwalqu/sigtrip:2.0.0
 docker run -d \
   --name argos \
   --env-file .env \
   -p 8080:8080 \
   -v $(pwd)/logs:/app/logs \
   -v $(pwd)/data:/app/data \
-  ghcr.io/iliyaqdrwalqu/argoss:2.0.0
+  ghcr.io/iliyaqdrwalqu/sigtrip:2.0.0
 ```
 
 ---

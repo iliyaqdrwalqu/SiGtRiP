@@ -1,5 +1,5 @@
 # ======================================================
-# ARGOS v1.4.0 — Android / Kivy entry point
+# ARGOS v2.1 — Android / Kivy entry point
 # ======================================================
 # This is the entry point used by buildozer for the APK.
 # It intentionally imports only Kivy-compatible modules

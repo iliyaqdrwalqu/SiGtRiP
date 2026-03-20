@@ -1,5 +1,5 @@
 """
-kivy_ma.py — ARGOS v1.4.0 Sovereign Node Launcher (Android/Mobile).
+kivy_ma.py — ARGOS v2.1 Sovereign Node Launcher (Android/Mobile).
 
 [FIX-KIVY-DESKTOP] Kivy импортируется ЛЕНИВО — только внутри launch()
 когда реально нужен мобильный режим. Это предотвращает открытие
@@ -18,7 +18,7 @@ IS_COLAB   = "COLAB_GPU" in os.environ or "COLAB_RELEASE_TAG" in os.environ
 class SovereignNode:
     def __init__(self, core=None):
         self.core = core
-        self.ver  = "1.4.0"
+        self.ver  = "2.1"
         self.mode = "mobile" if IS_ANDROID else "cloud"
 
     def process_all(self, cmd: str) -> str:

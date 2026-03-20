@@ -12,7 +12,7 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 # 👁️ ARGOS UNIVERSAL OS (v2.0.0)
 
-> **Docker image:** `ghcr.io/iliyaqdrwalqu/argoss:latest` — published automatically on every push to `main`.  
+> **Docker image:** `ghcr.io/iliyaqdrwalqu/sigtrip:latest` — published automatically on every push to `main`.  
 > **Android APK:** download the latest debug APK from the [Actions tab](https://github.com/iliyaqdrwalqu/Argoss/actions/workflows/android-apk.yml) → select the most recent run → expand **Artifacts** → download `argos-apk-debug-<run_number>`.
 
 > *"Самовоспроизводящаяся кроссплатформенная экосистема ИИ с квантовой логикой,*
@@ -818,7 +818,7 @@ docker-compose down
 ### Сборка образа вручную
 
 ```bash
-docker build -t argos-universal:1.4.0 .
+docker build -t argos-universal:2.1 .
 
 # Запуск контейнера напрямую
 docker run -d \
@@ -828,15 +828,15 @@ docker run -d \
   -v $(pwd)/logs:/app/logs \
   -v $(pwd)/config:/app/config \
   -v $(pwd)/data:/app/data \
-  argos-universal:1.4.0
+  argos-universal:2.1
 ```
 
 ### GitHub Container Registry (GHCR)
 
 ```bash
 # Публичный образ (после релиза)
-docker pull ghcr.io/iliyaqdrwalqu/argoss:latest
-docker run -d --env-file .env ghcr.io/iliyaqdrwalqu/argoss:latest
+docker pull ghcr.io/iliyaqdrwalqu/sigtrip:latest
+docker run -d --env-file .env ghcr.io/iliyaqdrwalqu/sigtrip:latest
 ```
 
 ---

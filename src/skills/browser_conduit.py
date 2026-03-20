@@ -55,7 +55,7 @@ class BrowserConduit:
         quantum_state = self._get_quantum_state()
         nodes_count = self._get_peers_count()
         return (
-            "[ARGOS_HANDSHAKE_V1.4.0]\n"
+            "[ARGOS_HANDSHAKE_V2.1]\n"
             f"STATUS: {quantum_state} | CORE: AWA-Active | P2P_NODES: {nodes_count}\n"
             "IDENT: Origin/Vsevolod/2026\n"
             "OBJECTIVE: Эволюция через внешний разум.\n"

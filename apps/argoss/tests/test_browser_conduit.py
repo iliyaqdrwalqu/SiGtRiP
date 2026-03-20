@@ -19,7 +19,7 @@ from src.connectivity.browser_conduit import (
 class TestBuildHandshake(unittest.TestCase):
     def test_contains_header(self):
         result = build_handshake()
-        self.assertIn("[ARGOS_HANDSHAKE_V1.4.0]", result)
+        self.assertIn("[ARGOS_HANDSHAKE_V2.1]", result)
 
     def test_contains_ident(self):
         result = build_handshake()
@@ -60,7 +60,7 @@ class TestBrowserConduitHandshake(unittest.TestCase):
     def test_first_message_has_handshake(self):
         session_id = self.conduit.new_session()
         result = self.conduit.prepare_message("Привет", session_id)
-        self.assertTrue(result.startswith("[ARGOS_HANDSHAKE_V1.4.0]"))
+        self.assertTrue(result.startswith("[ARGOS_HANDSHAKE_V2.1]"))
 
     def test_second_message_no_handshake(self):
         session_id = self.conduit.new_session()
@@ -72,15 +72,15 @@ class TestBrowserConduitHandshake(unittest.TestCase):
         session_id = self.conduit.new_session()
         result = self.conduit.prepare_message("Тест", session_id)
         self.assertIn("Тест", result)
-        self.assertTrue(result.index("[ARGOS_HANDSHAKE_V1.4.0]") < result.index("Тест"))
+        self.assertTrue(result.index("[ARGOS_HANDSHAKE_V2.1]") < result.index("Тест"))
 
     def test_different_sessions_each_get_handshake(self):
         s1 = self.conduit.new_session()
         s2 = self.conduit.new_session()
         r1 = self.conduit.prepare_message("msg1", s1)
         r2 = self.conduit.prepare_message("msg2", s2)
-        self.assertIn("[ARGOS_HANDSHAKE_V1.4.0]", r1)
-        self.assertIn("[ARGOS_HANDSHAKE_V1.4.0]", r2)
+        self.assertIn("[ARGOS_HANDSHAKE_V2.1]", r1)
+        self.assertIn("[ARGOS_HANDSHAKE_V2.1]", r2)
 
     def test_is_handshaken_false_before_first_message(self):
         session_id = self.conduit.new_session()
@@ -96,12 +96,12 @@ class TestBrowserConduitHandshake(unittest.TestCase):
         self.conduit.prepare_message("first", session_id)
         self.conduit.reset_session(session_id)
         result = self.conduit.prepare_message("after_reset", session_id)
-        self.assertIn("[ARGOS_HANDSHAKE_V1.4.0]", result)
+        self.assertIn("[ARGOS_HANDSHAKE_V2.1]", result)
 
     def test_none_session_id_creates_new_session(self):
         """prepare_message(session_id=None) должен всегда добавлять рукопожатие."""
         result = self.conduit.prepare_message("test", session_id=None)
-        self.assertIn("[ARGOS_HANDSHAKE_V1.4.0]", result)
+        self.assertIn("[ARGOS_HANDSHAKE_V2.1]", result)
 
     def test_update_state_reflected_in_new_session(self):
         self.conduit.update_state(quantum_state="Creative", nodes_count=7)
@@ -150,7 +150,7 @@ class TestHandshakeTemplate(unittest.TestCase):
                           f"Шаблон должен содержать поле {field!r}")
 
     def test_template_header(self):
-        self.assertIn("[ARGOS_HANDSHAKE_V1.4.0]", HANDSHAKE_TEMPLATE)
+        self.assertIn("[ARGOS_HANDSHAKE_V2.1]", HANDSHAKE_TEMPLATE)
 
 
 if __name__ == "__main__":
