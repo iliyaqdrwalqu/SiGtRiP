@@ -1,20 +1,17 @@
-name: 🚀 Publish to PyPI
+name: 🚀 Publish to TestPyPI
 
-# Publishes argos-universalsigtrip to PyPI via OIDC Trusted Publishing.
+# Publishes argos-universalsigtrip to TestPyPI via OIDC Trusted Publishing.
 # No PYPI_TOKEN required — authentication is handled by GitHub's OIDC provider.
 #
-# One-time setup on pypi.org:
-#   1. Log in to https://pypi.org
+# One-time setup on test.pypi.org:
+#   1. Log in to https://test.pypi.org
 #   2. Go to your account → Publishing → Add a new publisher
 #   3. Fill in:
 #      - PyPI project name: argos-universalsigtrip
 #      - Owner:             iliyaqdrwalqu
 #      - Repository:        SiGtRiP
 #      - Workflow file:     publish_pypi.yml
-#      - Environment name:  (leave blank)
-#
-# Recommended: run publish_testpypi.yml first to validate the package on
-# TestPyPI before publishing to the production PyPI index.
+#      - Environment name:  testpypi
 
 on:
   workflow_dispatch:
@@ -27,8 +24,12 @@ permissions:
 
 jobs:
   publish-pypi:
-    name: Build and publish to PyPI
+    name: Build and publish to TestPyPI
     runs-on: ubuntu-latest
+    environment: testpypi
+    env:
+      PROJECT_DIR: ${{ github.workspace }}
+      DIST_DIR: ${{ github.workspace }}/dist
 
     steps:
       - uses: actions/checkout@v5
@@ -53,11 +54,14 @@ jobs:
             /*) ;;
             *) echo "GITHUB_WORKSPACE must be absolute" >&2; exit 1 ;;
           esac
-          rm -rf "${GITHUB_WORKSPACE}/dist"
+          rm -rf "${DIST_DIR}"
           tmpdir="$(mktemp -d)"
           trap 'rm -rf "${tmpdir}"' EXIT
           cd "$tmpdir"
-          python -m build "${GITHUB_WORKSPACE}" --outdir "${GITHUB_WORKSPACE}/dist"
+          python -m build "${PROJECT_DIR}" --outdir "${DIST_DIR}" --sdist --wheel
 
-      - name: Publish to PyPI
+      - name: Publish to TestPyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: ${{ env.DIST_DIR }}
