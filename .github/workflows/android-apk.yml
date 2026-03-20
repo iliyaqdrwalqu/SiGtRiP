@@ -86,6 +86,7 @@ jobs:
               try:
                   content = pxi.read_text(encoding="utf-8", errors="replace")
                   patched = re.sub(r"\blong\b", "int", content)
+                  patched = re.sub(r"ctypedef\s+int\s+int\s+jlong", "ctypedef long jlong", patched)
                   if patched != content:
                       pxi.write_text(patched, encoding="utf-8")
                       print(f"Patched: {pxi}")

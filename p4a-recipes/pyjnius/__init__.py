@@ -29,15 +29,25 @@ class PyjniusRecipe(_PyjniusBase):
         build_path = Path(build_dir)
         if not build_path.exists():
             return
-        for pxi_file in build_path.rglob("*.pxi"):
+        for pxi_file in build_path.rglob('*.pxi'):
             try:
-                content = pxi_file.read_text(encoding="utf-8", errors="replace")
+                content = pxi_file.read_text(encoding='utf-8', errors='replace')
                 patched = re.sub(r"\blong\b", "int", content)
-                if patched != content:
-                    pxi_file.write_text(patched, encoding="utf-8")
-                    print(f"[custom pyjnius] Fixed long\u2192int in {pxi_file.name}")
+                patched_jlong = re.sub(
+                    r"ctypedef\s+int\s+int\s+jlong", "ctypedef long jlong", patched
+                )
+                if patched_jlong != content:
+                    pxi_file.write_text(patched_jlong, encoding='utf-8')
+                    changes = []
+                    if patched != content:
+                        changes.append('long→int')
+                    if patched_jlong != patched:
+                        changes.append('jlong typedef')
+                    change_label = ' & '.join(changes) or 'patch'
+                    print(f"[custom pyjnius] Fixed {change_label} in {pxi_file.name}")
             except OSError as exc:
                 print(f"[custom pyjnius] Could not patch {pxi_file}: {exc}")
 
 
 recipe = PyjniusRecipe()
+

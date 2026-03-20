@@ -82,6 +82,24 @@ jobs:
           pip install --upgrade pip setuptools wheel
           pip install buildozer cython==0.29.37
 
+      - name: Patch cached pyjnius source (long → int, jlong typedef)
+        run: |
+          python3 - <<'PYEOF'
+          import re
+          from pathlib import Path
+          for pxi in Path(".buildozer").rglob("jnius*.pxi"):
+              try:
+                  content = pxi.read_text(encoding="utf-8", errors="replace")
+                  patched = re.sub(r"\blong\b", "int", content)
+                  patched = re.sub(r"ctypedef\s+int\s+int\s+jlong", "ctypedef long jlong", patched)
+                  if patched != content:
+                      pxi.write_text(patched, encoding="utf-8")
+                      print(f"Patched: {pxi}")
+              except OSError as e:
+                  print(f"Could not patch {pxi}: {e}")
+          print("pyjnius cache patch done.")
+          PYEOF
+
       - name: Ensure FileProvider manifest XML exists
         run: |
           mkdir -p .buildozer/android/platform
