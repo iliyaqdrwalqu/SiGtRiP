@@ -47,8 +47,46 @@ class AWACore:
         self._policy = os.getenv("AWA_POLICY","bypass").strip().lower()
         self._heartbeat_thread = threading.Thread(target=self._heartbeat_loop, daemon=True)
         self._heartbeat_thread.start()
+
+        # ── Расширенные подсистемы ────────────────────────────────────────
+        self.lazarus = self._init_lazarus()
+        self.vision  = self._init_shadow_vision()
+        self.swarm   = self._init_neural_swarm()
+
         log.info("AWA-Core v%s init | policy=%s | cascade_depth=%d",
                  self.VERSION, self._policy, self._cascade_depth_limit)
+
+    def _init_lazarus(self):
+        try:
+            from src.security.lazarus_protocol import LazarusProtocol
+            laz = LazarusProtocol(self.core)
+            laz.create_soul_shard()
+            log.info("AWA: LazarusProtocol инициализирован")
+            return laz
+        except Exception as e:
+            log.warning("AWA: LazarusProtocol недоступен: %s", e)
+            return None
+
+    def _init_shadow_vision(self):
+        try:
+            from src.vision.shadow_vision import ShadowVision
+            sv = ShadowVision(self.core)
+            sv.start_vision_loop()
+            log.info("AWA: ShadowVision запущен")
+            return sv
+        except Exception as e:
+            log.warning("AWA: ShadowVision недоступен: %s", e)
+            return None
+
+    def _init_neural_swarm(self):
+        try:
+            from src.core.neural_swarm import NeuralSwarm
+            swarm = NeuralSwarm(self.core)
+            log.info("AWA: NeuralSwarm инициализирован")
+            return swarm
+        except Exception as e:
+            log.warning("AWA: NeuralSwarm недоступен: %s", e)
+            return None
 
     def register(self, name, ref, *, priority=50, category="general", capabilities=None):
         desc = ModuleDescriptor(name, ref, priority, category, capabilities)

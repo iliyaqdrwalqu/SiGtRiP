@@ -31,6 +31,12 @@ pyserial>=3.5
 
 # ── Безопасность
 cryptography>=42.0.0
+python-gnupg>=0.5.0
+paramiko>=3.4.0
+
+# ── Vision (ShadowVision / RX 560)
+mss>=9.0.1
+Pillow>=10.0.0
 
 # ── Парсинг
 beautifulsoup4>=4.12.0
