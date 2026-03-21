@@ -9,7 +9,7 @@ from unittest.mock import patch, MagicMock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from awareness import ArgosAwareness, _safe
+from src.awareness import ArgosAwareness, _safe
 
 
 # ── ArgosAwareness.__init__ ──────────────────────────────────────────────────

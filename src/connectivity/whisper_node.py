@@ -1,30 +1,34 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-whisper_node.py — Шепчущий узел Аргоса.
-P2P-узел на основе RNN, обменивающийся состояниями, весами и скомпилированным
-кодом с другими узлами через UDP-broadcast.
+whisper_node.py — Распределённый mesh-узел Argos.
 
-Функции:
-  - Обмен скрытыми состояниями RNN («шепот»)
-  - Мимикрия: копирование весов у других узлов
-  - Кластеризация: выбор лидера и рассылка карты сети
-  - Ассемблирование и рассылка машинного кода (если установлен keystone)
-  - Лёгкий режим «колибри»: только слушать, не генерировать
-  - Почкование (budding): создание дочерних узлов в сети (через BuddingManager)
-  - Поддержка Xen Argo транспорта (между доменами Xen)
+WhisperNode общается с другими узлами через UDP, обмениваясь:
+  - состояниями RNN (шёпот)
+  - весами для мимикрии
+  - кластерной информацией
+  - скомпилированным кодом (если доступен keystone)
+
+Запуск:
+  python whisper_node.py --node-id NodeA --port 5001
+  python whisper_node.py --node-id NodeB --port 5002 --light-mode
+
+Интегрируется с main.py через команды: mesh start / mesh stop / mesh status
 """
+
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
+import logging
 import pickle
 import socket
-import struct
 import threading
 import time
 import warnings
 from collections import deque
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 
@@ -33,19 +37,22 @@ try:
     HAVE_KS = True
 except ImportError:
     HAVE_KS = False
-    warnings.warn("Keystone not installed, assembly disabled")
+    warnings.warn("keystone не установлен — ассемблирование отключено", stacklevel=1)
+
+log = logging.getLogger("argos.whisper")
 
 
-# ─────────────────────────────────────────────────
-# RNN-ячейка внутреннего состояния
-# ─────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# RNN-ячейка (внутренний процессор состояния)
+# ─────────────────────────────────────────────────────────────────────────────
+
 class RNNCell:
     """
-    Простая ячейка RNN с Tanh-активацией.
-    h_new = tanh(W_h @ h_old + W_i @ x + b)
+    Простая ячейка RNN с фиксированными случайными весами.
+      h_new = tanh(W_h @ h_old + W_i @ x + b)
     """
 
-    def __init__(self, input_size: int, hidden_size: int):
+    def __init__(self, input_size: int, hidden_size: int) -> None:
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.W_h = np.random.randn(hidden_size, hidden_size) * 0.1
@@ -56,17 +63,22 @@ class RNNCell:
         return np.tanh(self.W_h @ h_prev + self.W_i @ x + self.b)
 
 
-# ─────────────────────────────────────────────────
-# Основной узел
-# ─────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# Основной класс узла
+# ─────────────────────────────────────────────────────────────────────────────
+
 class WhisperNode:
     """
-    Узел, обменивающийся через UDP:
-      - состояниями RNN (MT_STATE)
-      - скомпилированным машинным кодом (MT_CODE)
-      - запросами/данными мимикрии (MT_MIMIC_REQUEST / MT_MIMIC_DATA)
-      - информацией о кластере (MT_CLUSTER_INFO)
-      - пингами (MT_PING)
+    Mesh-узел Argos, работающий через UDP.
+
+    Типы сообщений:
+      MT_STATE        — вектор скрытого состояния RNN
+      MT_CODE         — скомпилированная функция (hex-байты)
+      MT_MIMIC_REQUEST — запрос на копирование весов
+      MT_MIMIC_DATA   — передача весов (pickle)
+      MT_CLUSTER_INFO — информация о кластере (роль, участники)
+      MT_PING         — проверка присутствия
+      MT_SOIL_INFO    — информация о найденном хосте-«почве»
     """
 
     PROTOCOL_VERSION = 1
@@ -88,99 +100,117 @@ class WhisperNode:
         light_mode: bool = False,
         enable_budding: bool = False,
         soil_search_interval: int = 60,
-        use_xen_argo: bool = False,
-    ):
+    ) -> None:
         self.node_id = node_id
         self.host = host
         self.port = port
         self.hidden_size = hidden_size
         self.light_mode = light_mode
-        self.running = True
+        self.running = False
 
-        # RNN-ядро
+        # RNN
         self.rnn = RNNCell(input_size=1, hidden_size=hidden_size)
         self.hidden_state = np.zeros(hidden_size)
         self.last_silence = 0.0
-        self.history: list = []
 
-        # Буферы сообщений
+        # Буферы входящих сообщений
         self.inbox_states: deque = deque(maxlen=20)
-        self.inbox_codes: dict = {}
+        self.inbox_codes: Dict[str, Any] = {}
         self.inbox_mimic_requests: set = set()
-        self.inbox_mimic_data: dict = {}
-        self.cluster_info: dict = {}
-        self.compiled_functions: dict = {}
+        self.inbox_mimic_data: Dict[str, Any] = {}
+        self.cluster_info: Dict[str, Any] = {}
 
-        # UDP-сокет (широковещательный); host='0.0.0.0' необходим для LAN P2P
+        # UDP-сокет (широковещательный).
+        # Привязка к 0.0.0.0 необходима для получения UDP-broadcast-пакетов
+        # от других узлов mesh-сети на всех сетевых интерфейсах — это
+        # основная функция WhisperNode. Для ограничения используйте host=<конкретный IP>.
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         self.sock.bind((self.host, self.port))
         self.sock.settimeout(0.1)
 
-        self.listener_thread = threading.Thread(target=self._listen, daemon=True)
-        self.listener_thread.start()
+        # История
+        self.silence_history: List[float] = []
 
-        # Xen Argo (опционально)
-        self.argo_transport = None
-        if use_xen_argo:
-            try:
-                from src.connectivity.xen_argo_transport import XenArgoTransport
-                self.argo_transport = XenArgoTransport(self.node_id, port=self.port)
-            except Exception as e:
-                warnings.warn(f"WhisperNode: XenArgo недоступен: {e}")
+        # Ассемблированные функции
+        self.compiled_functions: Dict[str, bytes] = {}
 
-        # Почкование (опционально)
+        # Почкование
         self.budding = None
         if enable_budding:
             try:
-                from src.connectivity.budding_manager import BuddingManager
+                from budding_manager import BuddingManager
                 self.budding = BuddingManager(self, soil_search_interval=soil_search_interval)
-            except Exception as e:
-                warnings.warn(f"WhisperNode: BuddingManager недоступен: {e}")
+            except ImportError:
+                log.warning("budding_manager.py не найден — почкование отключено")
 
-        # В «полном» режиме запускаем observe
+    # ── запуск / остановка ────────────────────────────────────────────────
+
+    def start(self) -> None:
+        """Запускает узел (поток слушателя + цикл наблюдения)."""
+        if self.running:
+            return
+        self.running = True
+        self._listener_thread = threading.Thread(target=self._listen, daemon=True)
+        self._listener_thread.start()
         if not self.light_mode:
-            self.observe()
+            self._schedule_observe()
+        log.info("[%s] WhisperNode запущен на порту %d", self.node_id, self.port)
 
-    # ── Приём ────────────────────────────────────────
-    def _listen(self):
+    def stop(self) -> None:
+        """Останавливает узел."""
+        self.running = False
+        try:
+            self.sock.close()
+        except Exception:
+            pass
+        if self.budding:
+            self.budding.stop()
+        log.info("[%s] WhisperNode остановлен", self.node_id)
+
+    # ── приём сообщений ───────────────────────────────────────────────────
+
+    def _listen(self) -> None:
         while self.running:
             try:
-                data, addr = self.sock.recvfrom(8192)
+                data, _ = self.sock.recvfrom(8192)
                 msg = json.loads(data.decode())
                 if msg.get("proto") != self.PROTOCOL_VERSION:
                     continue
                 if msg.get("node_id") == self.node_id:
                     continue
-                self._dispatch(msg)
+
+                mtype = msg["type"]
+                if mtype == self.MT_STATE:
+                    self.inbox_states.append((msg["node_id"], np.array(msg["state"])))
+                elif mtype == self.MT_CODE:
+                    self.inbox_codes[msg["node_id"]] = (
+                        msg.get("func_name", "unknown"),
+                        bytes.fromhex(msg["code_hex"]),
+                    )
+                elif mtype == self.MT_MIMIC_REQUEST:
+                    self.inbox_mimic_requests.add(msg["node_id"])
+                elif mtype == self.MT_MIMIC_DATA:
+                    weights = pickle.loads(bytes.fromhex(msg["data_hex"]))
+                    self.inbox_mimic_data[msg["node_id"]] = weights
+                elif mtype == self.MT_CLUSTER_INFO:
+                    self.cluster_info[msg["node_id"]] = {
+                        "role": msg["role"],
+                        "members": msg["members"],
+                    }
+                elif mtype == self.MT_SOIL_INFO:
+                    log.info("[%s] Soil info from %s: %s", self.node_id, msg["node_id"], msg.get("host"))
+                # MT_PING — ничего не делаем
             except socket.timeout:
                 continue
-            except Exception as e:
+            except Exception as exc:
                 if self.running:
-                    print(f"[{self.node_id}] recv error: {e}")
+                    log.debug("[%s] recv error: %s", self.node_id, exc)
 
-    def _dispatch(self, msg: dict):
-        t = msg.get("type")
-        if t == self.MT_STATE:
-            self.inbox_states.append((msg["node_id"], np.array(msg["state"])))
-        elif t == self.MT_CODE:
-            self.inbox_codes[msg["node_id"]] = (
-                msg.get("func_name", "unknown"),
-                bytes.fromhex(msg["code_hex"]),
-            )
-        elif t == self.MT_MIMIC_REQUEST:
-            self.inbox_mimic_requests.add(msg["node_id"])
-        elif t == self.MT_MIMIC_DATA:
-            weights = pickle.loads(bytes.fromhex(msg["data_hex"]))
-            self.inbox_mimic_data[msg["node_id"]] = weights
-        elif t == self.MT_CLUSTER_INFO:
-            self.cluster_info[msg["node_id"]] = {
-                "role": msg.get("role"),
-                "members": msg.get("members", []),
-            }
+    # ── рассылка ──────────────────────────────────────────────────────────
 
-    # ── Отправка ─────────────────────────────────────
-    def _broadcast(self, msg_dict: dict):
+    def _broadcast(self, msg_dict: dict) -> None:
         msg_dict["proto"] = self.PROTOCOL_VERSION
         msg_dict["node_id"] = self.node_id
         try:
@@ -188,15 +218,23 @@ class WhisperNode:
                 json.dumps(msg_dict).encode(),
                 ("255.255.255.255", self.port),
             )
-        except Exception as e:
-            print(f"[{self.node_id}] send error: {e}")
+        except Exception as exc:
+            log.debug("[%s] send error: %s", self.node_id, exc)
 
-    # ── Основной цикл ────────────────────────────────
-    def observe(self):
-        """Один шаг самонаблюдения и обмена."""
+    # ── основной цикл ─────────────────────────────────────────────────────
+
+    def _schedule_observe(self) -> None:
+        threading.Timer(0.2, self._observe_step).start()
+
+    def _observe_step(self) -> None:
         if not self.running:
             return
+        self.observe()
+        if self.running and not self.light_mode:
+            self._schedule_observe()
 
+    def observe(self) -> None:
+        """Один шаг наблюдения: обновляет RNN, рассылает состояние."""
         # 1. Вход из сети
         if self.inbox_states:
             avg_vec = np.mean([s for _, s in self.inbox_states], axis=0)
@@ -208,69 +246,55 @@ class WhisperNode:
         noise = np.random.randn() * 0.05
         x = np.array([input_val + noise])
 
-        # 2. Обновляем RNN
+        # 2. Обновление RNN
         self.hidden_state = self.rnn.forward(x, self.hidden_state)
         self.last_silence = float(np.linalg.norm(self.hidden_state))
+        self.silence_history.append(self.last_silence)
 
-        # 3. Рассылаем своё состояние
+        # 3. Рассылка состояния
         self._broadcast({"type": self.MT_STATE, "state": self.hidden_state.tolist()})
 
-        # 4. Мимикрия: отвечаем на запросы
-        if self.inbox_mimic_requests:
+        # 4. Мимикрия — ответ на запросы
+        for req_node in list(self.inbox_mimic_requests):
             weights = {
                 "W_h": self.rnn.W_h.tolist(),
                 "W_i": self.rnn.W_i.tolist(),
                 "b":   self.rnn.b.tolist(),
             }
-            data_hex = pickle.dumps(weights).hex()
-            for req_node in list(self.inbox_mimic_requests):
-                self._broadcast({
-                    "type": self.MT_MIMIC_DATA,
-                    "target": req_node,
-                    "data_hex": data_hex,
-                })
-            self.inbox_mimic_requests.clear()
+            self._broadcast({
+                "type":     self.MT_MIMIC_DATA,
+                "target":   req_node,
+                "data_hex": pickle.dumps(weights).hex(),
+            })
+        self.inbox_mimic_requests.clear()
 
-        # 5. Мимикрия: применяем чужие веса
+        # 5. Мимикрия — принятие чужих весов
         if self.inbox_mimic_data:
             src_node, wdata = next(iter(self.inbox_mimic_data.items()))
             self.rnn.W_h = np.array(wdata["W_h"])
             self.rnn.W_i = np.array(wdata["W_i"])
             self.rnn.b   = np.array(wdata["b"])
-            print(f"[{self.node_id}] Mimicked {src_node}")
+            log.info("[%s] Mimicked %s", self.node_id, src_node)
             self.inbox_mimic_data.clear()
 
-        # 6. Ассемблирование (10% шанс, если доступен keystone)
-        if HAVE_KS and np.random.rand() < 0.1:
+        # 6. Ассемблирование (редко)
+        if HAVE_KS and np.random.rand() < 0.05:
             self._assemble_and_send()
 
-        # 7. Кластеризация
+        # 7. Кластерный beacon
         if len(self.cluster_info) < 3:
             self._broadcast({
-                "type": self.MT_CLUSTER_INFO,
-                "role": "master",
+                "type":    self.MT_CLUSTER_INFO,
+                "role":    "master",
                 "members": [self.node_id],
             })
 
-        # 8. Следующий шаг
-        if self.running and not self.light_mode:
-            threading.Timer(0.2, self.observe).start()
+    # ── ассемблирование ───────────────────────────────────────────────────
 
-    # ── Ассемблирование ──────────────────────────────
-    def _assemble_and_send(self):
-        """
-        Компилирует простую функцию x86-64 и рассылает её байт-код узлам.
-
-        ⚠️  БЕЗОПАСНОСТЬ: распространение и выполнение машинного кода от
-        сетевых узлов несёт значительные риски. Эта функция включена
-        исключительно для исследовательских целей. В продакшен-окружении
-        убедитесь, что:
-          - входящий код проходит строгую валидацию и sandbox-запуск;
-          - только доверенные узлы (с проверкой ARGOS_NETWORK_SECRET) могут
-            присылать MT_CODE-сообщения;
-          - функциональность задействована через явный opt-in (HAVE_KS=True).
-        В текущей реализации только ОТПРАВКА кода — приём без выполнения.
-        """
+    def _assemble_and_send(self) -> None:
+        """Компилирует тестовую x86-64 функцию и рассылает её байты."""
+        if not HAVE_KS:
+            return
         asm_code = """
             push rbp
             mov rbp, rsp
@@ -286,86 +310,112 @@ class WhisperNode:
             func_name = f"add_{hashlib.md5(code_bytes).hexdigest()[:8]}"
             self.compiled_functions[func_name] = code_bytes
             self._broadcast({
-                "type": self.MT_CODE,
+                "type":      self.MT_CODE,
                 "func_name": func_name,
-                "code_hex": code_bytes.hex(),
+                "code_hex":  code_bytes.hex(),
             })
-        except Exception as e:
-            print(f"[{self.node_id}] Assembly failed: {e}")
+            log.debug("[%s] Assembled and sent %s", self.node_id, func_name)
+        except Exception as exc:
+            log.debug("[%s] Assembly failed: %s", self.node_id, exc)
 
-    # ── Внешнее управление ───────────────────────────
-    def request_mimic(self, target_node_id: str):
-        """Послать запрос на мимикрию другому узлу."""
+    # ── управляющие методы ────────────────────────────────────────────────
+
+    def request_mimic(self, target_node_id: str) -> None:
+        """Запрашивает мимикрию у конкретного узла."""
         self._broadcast({"type": self.MT_MIMIC_REQUEST, "target": target_node_id})
 
-    def send_ping(self):
+    def send_ping(self) -> None:
         self._broadcast({"type": self.MT_PING})
 
-    def stop(self):
-        self.running = False
-        if self.budding:
-            self.budding.stop()
-        if self.argo_transport:
-            self.argo_transport.close()
-        try:
-            self.sock.close()
-        except Exception:
-            pass
-        print(f"[{self.node_id}] Stopped.")
-
-    def get_status(self) -> dict:
+    def get_status(self) -> Dict[str, Any]:
         return {
             "node_id":     self.node_id,
             "port":        self.port,
+            "running":     self.running,
+            "light_mode":  self.light_mode,
             "hidden_norm": float(np.linalg.norm(self.hidden_state)),
             "last_silence": self.last_silence,
-            "light_mode":  self.light_mode,
-            "budding":     self.budding is not None,
-            "xen_argo":    self.argo_transport is not None,
-            "inbox_sizes": {
+            "cluster_info": self.cluster_info,
+            "compiled_functions": list(self.compiled_functions.keys()),
+            "inbox": {
                 "states":         len(self.inbox_states),
                 "codes":          len(self.inbox_codes),
                 "mimic_requests": len(self.inbox_mimic_requests),
-                "mimic_data":     len(self.inbox_mimic_data),
             },
-            "cluster_info":      self.cluster_info,
-            "compiled_functions": list(self.compiled_functions.keys()),
         }
 
 
-# ─────────────────────────────────────────────────
-# Точка входа для дочернего узла (почки)
-# ─────────────────────────────────────────────────
-if __name__ == "__main__":
-    import argparse
+# ─────────────────────────────────────────────────────────────────────────────
+# Глобальный менеджер (для main.py)
+# ─────────────────────────────────────────────────────────────────────────────
 
-    parser = argparse.ArgumentParser(description="WhisperNode — дочерний узел Аргоса")
-    parser.add_argument("--node-id", default="BudNode")
-    parser.add_argument("--port",        type=int,   default=6000)
-    parser.add_argument("--hidden-size", type=int,   default=5)
+_active_node: Optional[WhisperNode] = None
+
+
+def mesh_start(node_id: str = "ARGOS_MESH", port: int = 5000, light_mode: bool = False) -> str:
+    """Запускает mesh-узел (команда из main.py)."""
+    global _active_node
+    if _active_node and _active_node.running:
+        return f"🌐 MESH: узел {_active_node.node_id} уже запущен на порту {_active_node.port}"
+    try:
+        _active_node = WhisperNode(
+            node_id=node_id,
+            port=port,
+            light_mode=light_mode,
+            enable_budding=True,
+        )
+        _active_node.start()
+        return f"🌐 MESH: узел {node_id} запущен на порту {port}"
+    except Exception as exc:
+        return f"❌ MESH: ошибка запуска: {exc}"
+
+
+def mesh_stop() -> str:
+    if not _active_node or not _active_node.running:
+        return "🌐 MESH: узел не запущен"
+    _active_node.stop()
+    return f"🌐 MESH: узел {_active_node.node_id} остановлен"
+
+
+def mesh_status() -> str:
+    if not _active_node:
+        return "🌐 MESH: узел не создан. Команда: mesh start"
+    import json as _json
+    return "🌐 MESH:\n" + _json.dumps(_active_node.get_status(), indent=2, ensure_ascii=False)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Точка входа при прямом запуске
+# ─────────────────────────────────────────────────────────────────────────────
+
+if __name__ == "__main__":
+    import sys
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    )
+
+    parser = argparse.ArgumentParser(description="Argos WhisperNode")
+    parser.add_argument("--node-id",     default="NodeA")
+    parser.add_argument("--port",        type=int, default=5001)
+    parser.add_argument("--hidden-size", type=int, default=5)
     parser.add_argument("--light-mode",  action="store_true")
-    parser.add_argument("--initial-state",   default=None)
-    parser.add_argument("--initial-weights", default=None)
+    parser.add_argument("--budding",     action="store_true")
     args = parser.parse_args()
 
     node = WhisperNode(
-        args.node_id,
+        node_id=args.node_id,
         port=args.port,
         hidden_size=args.hidden_size,
         light_mode=args.light_mode,
-        enable_budding=True,
+        enable_budding=args.budding,
     )
-
-    if args.initial_state:
-        node.hidden_state = np.array(json.loads(args.initial_state))
-    if args.initial_weights:
-        w = json.loads(args.initial_weights)
-        node.rnn.W_h = np.array(w["W_h"])
-        node.rnn.W_i = np.array(w["W_i"])
-        node.rnn.b   = np.array(w["b"])
+    node.start()
 
     try:
         while True:
-            time.sleep(1)
+            time.sleep(5)
+            log.info("[%s] status: %s", args.node_id, json.dumps(node.get_status()))
     except KeyboardInterrupt:
         node.stop()

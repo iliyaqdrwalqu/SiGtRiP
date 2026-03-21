@@ -5,7 +5,7 @@ tests/test_crypto_monitor.py
 import time
 import threading
 from unittest.mock import MagicMock, patch
-from crypto_monitor import CryptoSentinel
+from src.skills.crypto_monitor import CryptoSentinel
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -27,7 +27,7 @@ def _sentinel(bot=None):
 
 # ── get_prices ────────────────────────────────────────────────────────────────
 
-@patch("crypto_monitor.requests.get")
+@patch("src.skills.crypto_monitor.requests.get")
 def test_get_prices_ok(mock_get):
     mock_get.return_value = MagicMock(
         status_code=200,
@@ -41,7 +41,7 @@ def test_get_prices_ok(mock_get):
     assert prices["bitcoin"]["change"] == 6.5
 
 
-@patch("crypto_monitor.requests.get", side_effect=Exception("timeout"))
+@patch("src.skills.crypto_monitor.requests.get", side_effect=Exception("timeout"))
 def test_get_prices_network_error(mock_get):
     s = _sentinel()
     prices = s.get_prices()
@@ -50,7 +50,7 @@ def test_get_prices_network_error(mock_get):
 
 # ── check / alerts ────────────────────────────────────────────────────────────
 
-@patch("crypto_monitor.requests.get")
+@patch("src.skills.crypto_monitor.requests.get")
 def test_check_returns_alert_on_big_move(mock_get):
     mock_get.return_value = MagicMock(
         json=lambda: FAKE_PRICES,
@@ -64,7 +64,7 @@ def test_check_returns_alert_on_big_move(mock_get):
     assert "РОСТ" in alerts[0]
 
 
-@patch("crypto_monitor.requests.get")
+@patch("src.skills.crypto_monitor.requests.get")
 def test_check_no_alert_on_small_move(mock_get):
     mock_get.return_value = MagicMock(
         json=lambda: FAKE_PRICES_CALM,
@@ -77,7 +77,7 @@ def test_check_no_alert_on_small_move(mock_get):
 
 # ── report ────────────────────────────────────────────────────────────────────
 
-@patch("crypto_monitor.requests.get")
+@patch("src.skills.crypto_monitor.requests.get")
 def test_report_contains_symbols(mock_get):
     mock_get.return_value = MagicMock(
         json=lambda: FAKE_PRICES,
@@ -90,7 +90,7 @@ def test_report_contains_symbols(mock_get):
     assert "$" in rpt
 
 
-@patch("crypto_monitor.requests.get", side_effect=Exception("err"))
+@patch("src.skills.crypto_monitor.requests.get", side_effect=Exception("err"))
 def test_report_on_error(mock_get):
     s = _sentinel()
     rpt = s.report()
@@ -136,7 +136,7 @@ def test_send_alert_telegram_exception_handled():
 
 # ── start_loop / stop ─────────────────────────────────────────────────────────
 
-@patch("crypto_monitor.requests.get")
+@patch("src.skills.crypto_monitor.requests.get")
 def test_start_loop_returns_status(mock_get):
     mock_get.return_value = MagicMock(
         json=lambda: FAKE_PRICES_CALM,
@@ -149,7 +149,7 @@ def test_start_loop_returns_status(mock_get):
     s.stop()
 
 
-@patch("crypto_monitor.requests.get")
+@patch("src.skills.crypto_monitor.requests.get")
 def test_start_loop_with_bot_shows_connected(mock_get):
     mock_get.return_value = MagicMock(
         json=lambda: FAKE_PRICES_CALM,
@@ -162,7 +162,7 @@ def test_start_loop_with_bot_shows_connected(mock_get):
     s.stop()
 
 
-@patch("crypto_monitor.requests.get")
+@patch("src.skills.crypto_monitor.requests.get")
 def test_stop_sets_running_false(mock_get):
     mock_get.return_value = MagicMock(
         json=lambda: FAKE_PRICES_CALM,
@@ -177,7 +177,7 @@ def test_stop_sets_running_false(mock_get):
 
 # ── threshold customisation ───────────────────────────────────────────────────
 
-@patch("crypto_monitor.requests.get")
+@patch("src.skills.crypto_monitor.requests.get")
 def test_custom_threshold(mock_get):
     mock_get.return_value = MagicMock(
         json=lambda: FAKE_PRICES,   # BTC +6.5%, ETH -2.1%

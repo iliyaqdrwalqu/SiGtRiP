@@ -63,6 +63,20 @@ class FreelanceOrder:
     responded:   bool  = False
 
     def to_dict(self) -> dict:
+        """
+        Serialize the FreelanceOrder into a compact dictionary suitable for display.
+        
+        The resulting dictionary contains a shortened, presentation-ready view of the order:
+        - "platform": source platform name.
+        - "title": order title truncated to 60 characters.
+        - "budget": original budget string.
+        - "suitable": suitability expressed as a percentage string (e.g., "75%").
+        - "url": link to the order.
+        - "responded": status indicator — "✅" if a response was sent, "⏳" otherwise.
+        
+        Returns:
+            dict: A dictionary with the keys "platform", "title", "budget", "suitable", "url", and "responded" as described above.
+        """
         return {
             "platform":  self.platform,
             "title":     self.title[:60],
@@ -86,6 +100,18 @@ class Invoice:
     crypto_addr: str = ""
 
     def to_dict(self) -> dict:
+        """
+        Serialize the invoice into a compact dictionary suitable for display or persistence.
+        
+        Returns:
+            dict: Mapping with keys:
+                - "id": invoice identifier.
+                - "client": client name.
+                - "service": billed service description.
+                - "amount": human-readable amount combining RUB and USD (e.g. "₽1000 / $13.37").
+                - "due": due date string.
+                - "status": payment status text — "✅ Оплачен" if paid, "⏳ Ожидает" otherwise.
+        """
         return {
             "id":       self.invoice_id,
             "client":   self.client,
@@ -179,6 +205,17 @@ class FreelanceHunter:
     ]
 
     def __init__(self, core=None):
+        """
+        Initialize the FreelanceHunter, attaching an optional core and preparing internal state.
+        
+        Parameters:
+            core: Optional reference to the central core (e.g., AI or application controller) used for assisted operations; may be None.
+        
+        Detailed behavior:
+            - Initializes an empty cached orders list.
+            - Sets the running flag to False.
+            - Reads scan interval from the ARGOS_FREELANCE_INTERVAL environment variable (seconds), defaulting to 3600.
+        """
         self.core = core
         self._orders: List[FreelanceOrder] = []
         self._running = False
@@ -186,7 +223,17 @@ class FreelanceHunter:
         log.info("FreelanceHunter init")
 
     def scan(self, use_demo: bool = True) -> List[FreelanceOrder]:
-        """Сканирует площадки и возвращает подходящие заказы."""
+        """
+        Scan freelance platforms and return matching orders.
+        
+        When `use_demo` is True or the BeautifulSoup-based parsers are unavailable, uses built-in demo orders; otherwise attempts real parsing of supported sites. Results are filtered by a minimum suitability threshold and sorted by suitability descending.
+        
+        Parameters:
+            use_demo (bool): If True, force using demo orders instead of live parsing.
+        
+        Returns:
+            List[FreelanceOrder]: Matching orders sorted by suitability (highest first).
+        """
         found = []
 
         if use_demo or not BS4_OK:
@@ -216,13 +263,25 @@ class FreelanceHunter:
         return found
 
     def _score_order(self, text: str) -> float:
-        """Оценивает насколько заказ подходит навыкам Аргоса."""
+        """
+        Compute a suitability score for an order text against the agent's keywords.
+        
+        Returns:
+            float: Suitability score between 0.3 and 1.0, where higher values indicate greater relevance to the agent's skills.
+        """
         text_lower = text.lower()
         matches = sum(1 for kw in self.KEYWORDS if kw in text_lower)
         return min(1.0, matches * 0.2 + 0.3)
 
     def _parse_kwork(self) -> List[FreelanceOrder]:
-        """Парсинг Kwork.ru."""
+        """
+        Parse recent Kwork.ru project search results for Python/Telegram-related queries and build a list of FreelanceOrder objects.
+        
+        Performs HTTP requests to Kwork search pages for predefined queries and converts found listings into FreelanceOrder entries. Network or parsing failures are logged and result in an empty list.
+        
+        Returns:
+            List[FreelanceOrder]: Parsed orders from Kwork; empty list if none or on error.
+        """
         orders = []
         try:
             for kw in ["telegram бот python", "автоматизация python"]:
@@ -253,7 +312,14 @@ class FreelanceHunter:
         return orders
 
     def _parse_fl(self) -> List[FreelanceOrder]:
-        """Парсинг FL.ru."""
+        """
+        Parse recent project listings from FL.ru and produce a list of FreelanceOrder entries.
+        
+        Attempts to retrieve and convert up to several current FL.ru project posts into FreelanceOrder objects; on network errors, parsing failures, or when parsing prerequisites are unavailable, returns an empty list.
+        
+        Returns:
+            List[FreelanceOrder]: A list of parsed freelance orders (may be empty if none found or on error).
+        """
         orders = []
         try:
             url = "https://www.fl.ru/projects/?kind=1&category=1"
@@ -280,7 +346,17 @@ class FreelanceHunter:
         return orders
 
     def generate_response(self, order: FreelanceOrder) -> str:
-        """Генерирует отклик на заказ."""
+        """
+        Generate a tailored response message for a freelance order.
+        
+        The returned text contains a short header with the order title, budget and URL, a suggested reply chosen by the order's category (telegram, python, iot, or a default template), and an explicit confirmation prompt.
+        
+        Parameters:
+            order (FreelanceOrder): The freelance order to generate a reply for.
+        
+        Returns:
+            str: A formatted response string containing the order title, budget, URL, suggested reply text, and a confirmation prompt.
+        """
         templates = {
             "telegram": (
                 "Здравствуйте! Готов взяться за разработку Telegram бота. "
@@ -326,6 +402,15 @@ class FreelanceHunter:
         )
 
     def format_orders(self, limit: int = 5) -> str:
+        """
+        Format cached freelance orders into a human-readable list.
+        
+        Parameters:
+            limit (int): Maximum number of orders to include in the output.
+        
+        Returns:
+            str: Formatted text containing up to `limit` freelance orders with platform, title, budget, suitability percentage, and URL; if no orders are available, a not-found message is returned.
+        """
         orders = self._orders[:limit] if self._orders else self.scan()[:limit]
         if not orders:
             return "📭 Подходящих заказов не найдено"
@@ -354,6 +439,19 @@ class CryptoWallet:
     TONCENTER_API = "https://toncenter.com/api/v2"
 
     def __init__(self):
+        """
+        Initialize the CryptoWallet and configure addresses, API key, and internal state.
+        
+        Reads TON and USDT payment addresses and the TONCenter API key from environment variables and sets up internal caches:
+        - _ton_address: TON wallet address (from ARGOS_TON_ADDRESS).
+        - _usdt_address: USDT wallet address (from ARGOS_USDT_ADDRESS).
+        - _api_key: TONCenter API key (from TONCENTER_API_KEY).
+        - _balances: dict holding cached balances for 'TON', 'USDT', and 'BTC'.
+        - _transactions: list caching recent incoming transaction records.
+        - _last_check: timestamp of the last balance check.
+        
+        Logs whether a TON address was provided.
+        """
         self._ton_address  = os.getenv("ARGOS_TON_ADDRESS", "")
         self._usdt_address = os.getenv("ARGOS_USDT_ADDRESS", "")
         self._api_key      = os.getenv("TONCENTER_API_KEY", "")
@@ -363,7 +461,17 @@ class CryptoWallet:
         log.info("CryptoWallet init | TON=%s", bool(self._ton_address))
 
     def get_balance(self, force: bool = False) -> dict:
-        """Получает актуальный баланс."""
+        """
+        Return current cached or freshly fetched wallet balances.
+        
+        If `force` is False and the last successful check was within 300 seconds, the cached balances are returned. When a TON address and API key are configured the method attempts to query TONCenter for the TON balance; if those are not configured or the call fails, simulated balances for TON, USDT, and BTC are provided and cached.
+        
+        Parameters:
+            force (bool): If True, bypass cached value and attempt to refresh balances.
+        
+        Returns:
+            dict: Mapping of currency codes to numeric balances, e.g. {"TON": 1.234, "USDT": 12.34, "BTC": 0.001234}.
+        """
         if not force and (time.time() - self._last_check) < 300:
             return self._balances
 
@@ -394,7 +502,22 @@ class CryptoWallet:
     def get_payment_address(self, currency: str = "TON",
                             amount: float = 0.0,
                             comment: str = "") -> dict:
-        """Генерирует адрес для приёма оплаты от клиента."""
+        """
+                            Create a payment address payload for the specified currency.
+                            
+                            Parameters:
+                                currency (str): Currency code (e.g., "TON", "USDT"). Case-insensitive; defaults to "TON".
+                                amount (float): Requested payment amount in the currency's main units (for TON, fractional TONs are allowed).
+                                comment (str): Optional comment for the payment; if omitted a timestamped default comment is generated.
+                            
+                            Returns:
+                                dict: A payload containing:
+                                    - `currency` (str): Uppercased currency code.
+                                    - `address` (str): Payment address (real or demo fallback).
+                                    - `amount` (float): The requested amount as passed in.
+                                    - `comment` (str): The payment comment actually used.
+                                    - `qr_text` (str): A transfer URL suitable for QR encoding (TON scheme uses amount converted to nanos by multiplying amount by 1e9 and includes the `text` query parameter).
+                            """
         addresses = {
             "TON":  self._ton_address or "EQDemo...TON_ADDRESS",
             "USDT": self._usdt_address or "TDemo...USDT_ADDRESS",
@@ -409,7 +532,20 @@ class CryptoWallet:
         }
 
     def check_incoming(self) -> List[dict]:
-        """Проверяет входящие транзакции."""
+        """
+        Check for incoming cryptocurrency transactions.
+        
+        When a TON address and API key are configured, queries the TONCenter API and returns parsed inbound transactions with positive value. If no TON address or API key is available, may occasionally return a single simulated incoming transaction.
+        
+        Returns:
+            List[dict]: A list of transaction records. Each record contains:
+                - "hash" (str): Short transaction identifier.
+                - "from" (str): Sender address.
+                - "amount" (float): Amount in TON.
+                - "currency" (str): Currency code (e.g., "TON").
+                - "comment" (str): Attached message or comment.
+                - "time" (str): Human-readable timestamp in "YYYY-MM-DD HH:MM" format.
+        """
         if not self._ton_address or not self._api_key:
             # Симуляция входящей транзакции
             if random.random() < 0.1:
@@ -452,12 +588,25 @@ class CryptoWallet:
         return []
 
     def usd_equivalent(self) -> float:
-        """Общий баланс в USD."""
+        """
+        Compute the total wallet balance converted to US dollars using fixed exchange rates.
+        
+        Returns:
+            float: Total balance in USD computed by converting TON, USDT, and BTC balances with fixed rates (TON=5.5, USDT=1.0, BTC=65000.0).
+        """
         prices = {"TON": 5.5, "USDT": 1.0, "BTC": 65000.0}
         bal = self.get_balance()
         return sum(bal.get(c, 0) * prices.get(c, 0) for c in bal)
 
     def status(self) -> str:
+        """
+        Builds a human-readable multiline status summary for the crypto wallet.
+        
+        The summary includes TON/USDT/BTC balances, an approximate total in USD, the (truncated) TON address when set, and a short list of up to three recent incoming transactions with amount, currency, and comment excerpt.
+        
+        Returns:
+            status (str): Formatted multiline status text ready for display.
+        """
         bal = self.get_balance()
         total = self.usd_equivalent()
         incoming = self.check_incoming()
@@ -530,13 +679,30 @@ class ContentGenerator:
     }
 
     def __init__(self, core=None):
+        """
+        Initialize the ContentGenerator and prepare internal state.
+        
+        Parameters:
+            core (optional): Optional processing core used to generate content drafts; may be None.
+        """
         self.core = core
         self._published: List[dict] = []
         log.info("ContentGenerator init")
 
     def generate_post(self, topic: str = "",
                       content_type: str = "telegram_post") -> str:
-        """Генерирует черновик поста."""
+        """
+                      Generate a draft post for a given topic and content type.
+                      
+                      If no topic is provided, a topic is chosen from predefined ideas. When an AI core is available, the method requests a generated draft tailored to the requested content_type; otherwise it returns a local template-based draft.
+                      
+                      Parameters:
+                          topic (str): Topic or title for the post. If empty, a topic is selected automatically.
+                          content_type (str): Target format, e.g., "telegram_post", "habr_article", or "vc_article", which influences prompt length and style.
+                      
+                      Returns:
+                          str: The generated draft text.
+                      """
         if not topic:
             category = random.choice(list(self.TOPIC_IDEAS.keys()))
             topic = random.choice(self.TOPIC_IDEAS[category])
@@ -556,6 +722,15 @@ class ContentGenerator:
         return self._template_post(topic)
 
     def _template_post(self, topic: str) -> str:
+        """
+        Create a short templated draft for a social post on the given topic.
+        
+        Parameters:
+        	topic (str): Headline or topic phrase to include at the top of the draft.
+        
+        Returns:
+        	draft (str): A ready-to-edit post draft containing an emoji, the topic, a structured outline (what, why, how, example), a draft marker, and tags.
+        """
         emojis = ["🚀", "🔥", "💡", "⚡", "🤖", "👁️"]
         emoji = random.choice(emojis)
         return (
@@ -570,6 +745,18 @@ class ContentGenerator:
         )
 
     def get_topic_ideas(self, category: str = "") -> List[str]:
+        """
+        Return topic ideas for content creation.
+        
+        If `category` matches a key in TOPIC_IDEAS, return that category's full list of ideas.
+        If `category` is empty or not found, return up to five random ideas sampled from all categories.
+        
+        Parameters:
+            category (str): Optional category name to filter ideas. If omitted or unknown, ideas are chosen across all categories.
+        
+        Returns:
+            List[str]: A list of topic idea strings (either the full category list or up to five random ideas).
+        """
         if category and category in self.TOPIC_IDEAS:
             return self.TOPIC_IDEAS[category]
         all_ideas = []
@@ -578,7 +765,15 @@ class ContentGenerator:
         return random.sample(all_ideas, min(5, len(all_ideas)))
 
     def generate_content_plan(self, days: int = 7) -> str:
-        """Генерирует контент-план на N дней."""
+        """
+        Create a multi-day content plan with one topic and category assigned to each day.
+        
+        Parameters:
+            days (int): Number of consecutive days to include in the plan.
+        
+        Returns:
+            str: A formatted plain-text plan where each day lists the date, a suggested topic, and a category hashtag.
+        """
         plan = [f"📅 КОНТЕНТ-ПЛАН НА {days} ДНЕЙ:"]
         categories = list(self.TOPIC_IDEAS.keys())
         for day in range(1, days + 1):
@@ -633,19 +828,42 @@ class JobScanner:
     ]
 
     def __init__(self, core=None):
+        """
+        Initialize the JobScanner with an optional core reference and prepare internal state.
+        
+        Sets the core reference and initializes internal lists for discovered jobs and responded job IDs.
+        """
         self.core = core
         self._jobs: List[dict] = []
         self._responded: List[str] = []
         log.info("JobScanner init")
 
     def scan(self) -> List[dict]:
-        """Сканирует вакансии."""
+        """
+        Load demo job postings into the scanner and return the loaded list.
+        
+        This replaces the scanner's internal job cache with the built-in demo jobs and logs the number of loaded vacancies.
+        
+        Returns:
+            list[dict]: The list of job entries currently stored by the scanner (each entry is a dict with keys like 'source', 'title', 'company', 'salary', 'format', 'url', 'skills').
+        """
         self._jobs = self.DEMO_JOBS.copy()
         log.info("JobScanner: %d вакансий", len(self._jobs))
         return self._jobs
 
     def generate_cover_letter(self, job: dict) -> str:
-        """Генерирует сопроводительное письмо."""
+        """
+        Generate a cover letter tailored to a job posting.
+        
+        Parameters:
+            job (dict): Job metadata with expected keys:
+                - title (str): Job title.
+                - company (str): Company name.
+                - skills (List[str]): List of relevant skills to include in the letter.
+        
+        Returns:
+            str: A formatted cover letter mentioning the job title, company, listed skills, and a brief availability statement.
+        """
         skills = ", ".join(job.get("skills", []))
         return (
             f"Здравствуйте!\n\n"
@@ -658,6 +876,12 @@ class JobScanner:
         )
 
     def format_jobs(self) -> str:
+        """
+        Format the current job list into a numbered, human-readable text block for display.
+        
+        Returns:
+            str: Multiline string with a header showing the total number of jobs, numbered entries containing title, company, salary, format and URL, and a trailing instruction `Команда: отклик вакансия <номер>`.
+        """
         jobs = self._jobs or self.scan()
         lines = [f"💼 ВАКАНСИИ ({len(jobs)}):"]
         for i, j in enumerate(jobs, 1):
@@ -690,6 +914,11 @@ class BillingSystem:
         log.info("BillingSystem init")
 
     def _init_db(self):
+        """
+        Ensure the billing database file and the invoices table exist.
+        
+        Creates the data directory if missing and opens the SQLite database at self.db_path, creating an `invoices` table (columns: id, client, service, amount_rub, amount_usd, created_at, due_date, paid, crypto_addr) if it does not already exist.
+        """
         os.makedirs("data", exist_ok=True)
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("""
@@ -705,7 +934,20 @@ class BillingSystem:
     def create_invoice(self, client: str, service: str,
                        amount_rub: float,
                        accept_crypto: bool = True) -> Invoice:
-        """Создаёт счёт клиенту."""
+        """
+                       Create and persist an invoice for a client.
+                       
+                       If `accept_crypto` is True, requests a crypto payment address from the configured wallet and attaches it to the invoice. The invoice is stored in-memory and saved to the SQLite database at self.db_path.
+                       
+                       Parameters:
+                           client (str): Client name or identifier.
+                           service (str): Description of the billed service.
+                           amount_rub (float): Invoice total in Russian rubles.
+                           accept_crypto (bool): If True, generate and attach a crypto payment address.
+                       
+                       Returns:
+                           Invoice: The created Invoice object (also stored in self._invoices and persisted to the DB).
+                       """
         usd_rate = 90.0
         invoice_id = f"INV-{datetime.now().strftime('%Y%m%d')}-{random.randint(100,999)}"
         due = (datetime.now().replace(hour=0, minute=0)).strftime("%d.%m.%Y")
@@ -743,7 +985,17 @@ class BillingSystem:
         return inv
 
     def format_invoice(self, inv: Invoice) -> str:
-        """Форматирует счёт для отправки клиенту."""
+        """
+        Render an invoice into a human-readable multiline text block suitable for sending to a client.
+        
+        Includes amounts in RUB and USD, an approximate TON equivalent, available payment methods (including a truncated TON address when present), and the invoice dates.
+        
+        Parameters:
+            inv (Invoice): The invoice object to format.
+        
+        Returns:
+            str: A formatted multiline string representing the invoice ready for sending.
+        """
         ton_amount = round(inv.amount_usd / 5.5, 2)
         lines = [
             "━" * 40,
@@ -771,6 +1023,14 @@ class BillingSystem:
         return "\n".join(lines)
 
     def mark_paid(self, invoice_id: str) -> str:
+        """
+        Mark an invoice as paid and persist the change in the billing database.
+        
+        If the invoice exists, its paid flag is set and the change is saved; otherwise the invoice is left unchanged.
+        
+        Returns:
+            str: A confirmation message on success (`"✅ Счёт <id> отмечен как оплаченный"`) or an error message if the invoice was not found (`"❌ Счёт <id> не найден"`).
+        """
         inv = self._invoices.get(invoice_id)
         if not inv:
             return f"❌ Счёт {invoice_id} не найден"
@@ -781,6 +1041,12 @@ class BillingSystem:
         return f"✅ Счёт {invoice_id} отмечен как оплаченный"
 
     def summary(self) -> str:
+        """
+        Builds a concise billing summary showing totals and recent invoices.
+        
+        Returns:
+            str: Multiline text with total invoiced amount, paid and unpaid totals, the count of invoices, and up to five most-recent invoices each listed with a status icon, invoice ID, client and amount.
+        """
         total = sum(i.amount_rub for i in self._invoices.values())
         paid  = sum(i.amount_rub for i in self._invoices.values() if i.paid)
         unpaid = total - paid
@@ -864,14 +1130,36 @@ class AffiliateEngine:
     ]
 
     def __init__(self):
+        """
+        Initialize the AffiliateEngine instance and prepare internal state.
+        
+        Creates an empty list for active affiliate offers and an empty earnings mapping, and records initialization in the logs.
+        """
         self._active: List[AffiliateOffer] = []
         self._earnings: Dict[str, float] = {}
         log.info("AffiliateEngine init")
 
     def get_top_offers(self, limit: int = 5) -> List[AffiliateOffer]:
+        """
+        Retrieve the top affiliate offers ranked by suitability.
+        
+        Parameters:
+            limit (int): Maximum number of offers to return (default 5).
+        
+        Returns:
+            List[AffiliateOffer]: Offers sorted by descending `suitable` score, limited to `limit`.
+        """
         return sorted(self.OFFERS, key=lambda x: x.suitable, reverse=True)[:limit]
 
     def format_offers(self) -> str:
+        """
+        Render the top affiliate offers as a human-readable, multiline message.
+        
+        Each listed offer includes program name, commission, payout, a short description preview, and a URL.
+        
+        Returns:
+            formatted (str): Multiline string ready for display or sending containing the top affiliate offers.
+        """
         top = self.get_top_offers()
         lines = ["🤝 ПАРТНЁРСКИЕ ПРОГРАММЫ:"]
         for i, o in enumerate(top, 1):
@@ -884,6 +1172,14 @@ class AffiliateEngine:
         return "\n".join(lines)
 
     def estimate_monthly(self) -> str:
+        """
+        Generate a simulated monthly earnings forecast for the top affiliate offers.
+        
+        Produces a multiline text block listing an approximate monthly earning for each of the top 3 offers and a summed total. The per-offer and total amounts are randomly simulated and intended as illustrative estimates, not actual projections.
+        
+        Returns:
+            str: Multiline string containing per-offer approximate earnings and the aggregated monthly potential.
+        """
         top = self.get_top_offers(3)
         lines = ["📈 ПРОГНОЗ ПАРТНЁРСКОГО ДОХОДА:"]
         total = 0.0
@@ -906,6 +1202,17 @@ class ArgosLifeSupportV2:
     """
 
     def __init__(self, core=None, base_life_support=None):
+        """
+        Initialize the ArgosLifeSupportV2 manager and instantiate its subsystem components.
+        
+        Parameters:
+            core: Optional central application core object; if provided, this instance will be attached to core.life_v2.
+            base_life_support: Optional reference to an existing base life-support instance for compatibility or delegation.
+        
+        Notes:
+            - Creates and wires subsystems: FreelanceHunter, CryptoWallet, ContentGenerator, JobScanner, BillingSystem (connected to the CryptoWallet), and AffiliateEngine.
+            - Attaches this manager to `core.life_v2` when `core` is supplied.
+        """
         self.core      = core
         self.base      = base_life_support
 
@@ -923,7 +1230,14 @@ class ArgosLifeSupportV2:
         log.info("ArgosLifeSupportV2 ✅")
 
     def full_status(self) -> str:
-        """Полный финансовый статус v2."""
+        """
+        Assemble a consolidated status report for Argos life-support v2.
+        
+        Includes current crypto wallet summary, billing overview, and counts of cached freelance orders, jobs, and affiliate offers.
+        
+        Returns:
+            status (str): A multiline formatted string with the aggregated status report.
+        """
         bal = self.crypto.get_balance()
         lines = [
             "═" * 52,
@@ -942,6 +1256,17 @@ class ArgosLifeSupportV2:
         return "\n".join(lines)
 
     def handle_command(self, cmd: str) -> str:
+        """
+        Dispatches a user command to the appropriate life-support subsystem and returns a human-readable response.
+        
+        Supported command categories include freelance (scan/list/respond), crypto (status, payment address, check transactions), content (generate posts, articles, content plans, topic ideas), job/vacancy browsing and auto-responses, billing (list, create invoice, mark paid), affiliate offers and estimates, and overall v2 status. Unrecognized commands return the module help text.
+        
+        Parameters:
+            cmd (str): The raw user command string (will be trimmed and lowercased for matching).
+        
+        Returns:
+            str: A textual response produced by the targeted subsystem or a help message when the command is not recognized or invalid.
+        """
         cmd_s = cmd.strip()
         low   = cmd_s.lower()
 
@@ -953,7 +1278,7 @@ class ArgosLifeSupportV2:
             self.freelance.scan()
             return self.freelance.format_orders()
 
-        elif low.startswith("отклик ") and "вакансия" not in low:
+        elif low.startswith("отклик ") and not "вакансия" in low:
             try:
                 num = int(low.split()[-1]) - 1
                 orders = self.freelance._orders or self.freelance.scan()
@@ -1024,14 +1349,11 @@ class ArgosLifeSupportV2:
             return self.billing.summary()
 
         elif low.startswith("счёт ") or low.startswith("счет "):
-            parts = cmd_s[5:].split("|")
+            parts = cmd_s[6:].split("|")
             if len(parts) >= 3:
                 client  = parts[0].strip()
                 service = parts[1].strip()
-                try:
-                    amount  = float(parts[2].strip())
-                except ValueError:
-                    return "❌ Сумма должна быть числом"
+                amount  = float(parts[2].strip())
                 inv = self.billing.create_invoice(client, service, amount)
                 return self.billing.format_invoice(inv)
             return "Формат: счёт Клиент|Услуга|Сумма"
@@ -1054,6 +1376,12 @@ class ArgosLifeSupportV2:
         return self._help()
 
     def _help(self) -> str:
+        """
+        Provide the multi-line help text describing available ArgosLifeSupportV2 commands and their usage.
+        
+        Returns:
+            help_text (str): A multi-line string (Russian) listing commands, brief descriptions, and example syntaxes for the v2 life-support interface.
+        """
         return (
             "💰 ЖИЗНЕОБЕСПЕЧЕНИЕ v2:\n"
             "  фриланс            — найденные заказы\n"

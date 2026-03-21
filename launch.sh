@@ -30,7 +30,7 @@ fi
 # 3. Первичная инициализация (если .env отсутствует)
 if [ ! -f ".env" ]; then
     echo "  🔧 Первый запуск — инициализация..."
-    "$PYTHON" genesis.py
+    "$PYTHON" scripts/genesis.py
 fi
 
 # 4. Создать папки если их нет
