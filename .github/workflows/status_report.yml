@@ -75,8 +75,8 @@ jobs:
           echo "format=$FMT" >> $GITHUB_OUTPUT
           echo "Формат отчёта: $FMT"
 
-      - name: Run status report (console preview)
-        run: python status_report.py
+      - - name: Run status report (console preview)
+         run: python src/status_report.py
 
       - name: Run status report (Markdown)
         if: steps.fmt.outputs.format == 'markdown' || steps.fmt.outputs.format == ''
@@ -85,7 +85,6 @@ jobs:
       - name: Run status report (JSON)
         if: steps.fmt.outputs.format == 'json'
         run: python status_report.py --json --out status_report.json
-
       - name: Publish Markdown to GitHub Actions Summary
         if: steps.fmt.outputs.format != 'json'
         run: |
