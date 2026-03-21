@@ -1097,6 +1097,131 @@ pip install argos-universalsigtrip
 
 ---
 
+## 🩺 Self-Healing & Debug Logging
+
+Аргос включает два ключевых компонента для автодиагностики, самовосстановления и детального
+отображения хода работы системы.
+
+---
+
+### 🔧 Self-Healing Engine (`src/self_healing.py`)
+
+Движок автолечения Python-кода обнаруживает и исправляет типичные ошибки файлов системы
+без перезапуска сервиса.
+
+#### Что умеет:
+
+| Возможность | Описание |
+|---|---|
+| **Валидация синтаксиса** | Проверка каждого `.py`-файла через `ast.parse` (без выполнения кода) |
+| **Локальные патчи** | Исправление BOM-метки, смешанных отступов, управляющих символов — без LLM |
+| **LLM-лечение** | При наличии ядра — запрос к Gemini для исправления сложных ошибок |
+| **Резервное копирование** | Файл сохраняется в `data/.self_healing_backups/` перед любым изменением |
+| **Восстановление** | При неудачном лечении оригинал возвращается из резервной копии |
+| **Hot-reload** | После исправления модуль горячо перезагружается через `importlib.reload` |
+| **Валидация src/** | Полный скан каталога `src/` с отчётом о синтаксических ошибках |
+| **История** | Журнал последних 50 операций с результатами и методами лечения |
+
+#### Использование:
+
+```python
+from src.self_healing import SelfHealingEngine
+
+engine = SelfHealingEngine()
+
+# Проверить один файл
+ok, msg = engine.validate_file("src/my_module.py")
+print(msg)   # ✅ Синтаксис OK  или  ❌ SyntaxError: ...
+
+# Автолечение файла (backup + local fix + LLM + hot-reload)
+result = engine.auto_heal_file("src/my_module.py", error_msg=msg)
+print(result)
+
+# Проверить весь src/
+print(engine.validate_all_src())
+
+# История и статус
+print(engine.history())
+print(engine.status())
+```
+
+#### Алгоритм `auto_heal_file`:
+
+```
+1. Создать резервную копию → data/.self_healing_backups/
+2. Попробовать локальный патч (BOM, tabs, управляющие символы)
+3. Если не помогло и доступно ядро — запросить Gemini
+4. Проверить результат через ast.parse
+5. Записать исправленный файл
+6. При неудаче — восстановить оригинал из резервной копии
+7. Горячая перезагрузка модуля (если он уже в sys.modules)
+```
+
+---
+
+### 📋 Debug Logging (`src/argos_logger.py`)
+
+Единый логгер проекта с опциональной записью в ротируемый debug-файл.
+
+#### Переменные окружения:
+
+| Переменная | По умолчанию | Описание |
+|---|---|---|
+| `ARGOS_LOG_LEVEL` | `INFO` | Уровень логирования для stdout (`DEBUG`/`INFO`/`WARNING`/`ERROR`/`CRITICAL`) |
+| `ARGOS_DEBUG_LOG_FILE` | `logs/argos_debug.log` | Путь к файлу для debug-лога (задействуется только после `setup_debug_logging()`) |
+
+#### Быстрый старт:
+
+```python
+from src.argos_logger import get_logger, setup_debug_logging
+
+# Однократно при старте приложения — подключить debug-файл
+setup_debug_logging()   # → logs/argos_debug.log (5 МБ × 3 ротации)
+
+# Получить именованный логгер (в любом модуле)
+log = get_logger("my.module")
+
+log.debug("Подробная отладочная информация")   # → только в файл (при INFO stdout)
+log.info("Обычное событие")                    # → stdout + файл
+log.warning("Предупреждение")                  # → stdout + файл
+log.error("Ошибка выполнения")                 # → stdout + файл
+```
+
+#### Параметры `setup_debug_logging`:
+
+```python
+setup_debug_logging(
+    log_dir="logs",             # каталог для файла (создаётся автоматически)
+    log_file="argos_debug.log", # имя файла
+    max_bytes=5 * 1024 * 1024,  # максимальный размер файла (5 МБ)
+    backup_count=3,             # количество архивных копий при ротации
+)
+```
+
+Вызов идемпотентен — повторный вызов не добавляет дублирующих обработчиков.
+
+#### Формат записей в debug-файле:
+
+```
+2026-03-21 09:04:23 [DEBUG   ] src.core (core.py:142): Запуск основного цикла
+2026-03-21 09:04:23 [INFO    ] argos.healing (self_healing.py:87): Файл src/x.py исправлен
+2026-03-21 09:04:24 [WARNING ] argos.obs (observability.py:55): Таймаут трассировки
+```
+
+#### Структурированные логи (observability):
+
+Дополнительно, `src/observability.py` ведёт JSONL-лог (`logs/argos_structured.jsonl`)
+для структурированного анализа событий:
+
+```python
+from src.observability import log_event, tail_json
+
+log_event("healing", {"file": "src/x.py", "method": "local"})
+print(tail_json(20))   # последние 20 событий
+```
+
+---
+
 ## 📊 Аудит v2.1
 
 ```
