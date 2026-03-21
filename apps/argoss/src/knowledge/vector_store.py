@@ -53,17 +53,40 @@ class ArgosVectorStore:
                 sentence_transformers = importlib.import_module("sentence_transformers")
                 SentenceTransformer = sentence_transformers.SentenceTransformer
 
-                st_model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
+                # [FIX-ASYNC-MODEL] Загружаем модель в фоновом потоке, чтобы не
+                # блокировать запуск GUI на время скачивания / инициализации модели.
+                import threading
 
                 class _Embedder:
-                    def __init__(self, model):
-                        self.model = model
+                    def __init__(self):
+                        self._model = None
+                        self._ready = threading.Event()
+                        threading.Thread(
+                            target=self._load,
+                            args=(SentenceTransformer,),
+                            daemon=True,
+                            name="VectorStore-ModelLoad",
+                        ).start()
+
+                    def _load(self, cls):
+                        try:
+                            self._model = cls("paraphrase-multilingual-MiniLM-L12-v2")
+                            log.info("VectorStore: sentence-transformers модель загружена.")
+                        except Exception as exc:
+                            log.warning("VectorStore: ошибка загрузки модели: %s", exc)
+                        finally:
+                            self._ready.set()
 
                     def __call__(self, texts):
-                        vecs = self.model.encode(texts)
+                        # Ждём не дольше 30 с; если модель не загрузилась — возвращаем нули
+                        self._ready.wait(timeout=30)
+                        if self._model is None:
+                            dim = 384
+                            return [[0.0] * dim for _ in texts]
+                        vecs = self._model.encode(texts)
                         return [v.tolist() for v in vecs]
 
-                self._embedder = _Embedder(st_model)
+                self._embedder = _Embedder()
                 self._collection = client.get_or_create_collection("argos_memory", embedding_function=self._embedder)
             except Exception as e:
                 # Не включаем chromadb без embedder, чтобы не триггерить дефолтный ONNX download/таймауты

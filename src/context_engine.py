@@ -158,12 +158,27 @@ class SemanticRecall:
         self._try_init_encoder()
 
     def _try_init_encoder(self):
+        # [FIX-ASYNC-MODEL] Загружаем модель в фоновом потоке, чтобы не
+        # блокировать запуск GUI на время скачивания / инициализации модели.
+        import threading
         try:
-            from sentence_transformers import SentenceTransformer
-            self._encoder = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
-            log.info("SemanticRecall: sentence-transformers загружен.")
+            from sentence_transformers import SentenceTransformer as _ST
+            self._encoder_ready = threading.Event()
+
+            def _load():
+                try:
+                    self._encoder = _ST("paraphrase-multilingual-MiniLM-L12-v2")
+                    log.info("SemanticRecall: sentence-transformers загружен.")
+                except Exception as exc:
+                    log.warning("SemanticRecall: ошибка загрузки модели: %s", exc)
+                finally:
+                    self._encoder_ready.set()
+
+            threading.Thread(target=_load, daemon=True, name="SemanticRecall-ModelLoad").start()
         except ImportError:
             log.info("SemanticRecall: sentence-transformers нет — keyword mode.")
+            self._encoder_ready = threading.Event()
+            self._encoder_ready.set()
 
     def index_memory(self, memory):
         """Индексирует факты из памяти."""

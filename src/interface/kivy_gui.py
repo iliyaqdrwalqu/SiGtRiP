@@ -200,6 +200,14 @@ if KIVY_OK:
                 except Exception:
                     pass
 
+        def _append(self, text: str, color: str = ""):
+            """Совместимость с boot_desktop() — алиас для log()."""
+            self.log(text)
+
+        def mainloop(self):
+            """Совместимость с boot_desktop() — алиас для run()."""
+            self.run()
+
         def run(self):
             super().run()
 
@@ -217,8 +225,16 @@ else:
             print("⚠️  Kivy не установлен. Запусти: pip install kivy")
             print("    Используй --no-gui режим.")
 
+        def mainloop(self):
+            """Совместимость с boot_desktop() — алиас для run()."""
+            self.run()
+
         def log(self, text):
             print(f"[GUI] {text}")
+
+        def _append(self, text: str, color: str = ""):
+            """Совместимость с boot_desktop() — алиас для log()."""
+            self.log(text)
 
         def execute(self, cmd: str):
             if self.core_callback:
