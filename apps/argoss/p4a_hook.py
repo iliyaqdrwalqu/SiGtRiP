@@ -132,9 +132,43 @@ def source_dirs(arch):
     disable_broken_modules(arch)
 
 
+def _ensure_language_level(toolchain):
+    """Add ``# cython: language_level=3`` to all .pyx/.pxd files missing it."""
+    import glob as _glob
+    directive = "# cython: language_level=3\n"
+    storage = getattr(toolchain, "storage_dir", None) or ""
+    search_roots = [
+        storage,
+        os.path.expanduser("~/.buildozer"),
+        os.path.join(os.getcwd(), ".buildozer"),
+        os.getcwd(),
+    ]
+
+    patched_count = 0
+    for root in search_roots:
+        if not root or not os.path.isdir(root):
+            continue
+        for ext in ("*.pyx", "*.pxd"):
+            for match in _glob.glob(os.path.join(root, "**", ext), recursive=True):
+                try:
+                    with open(match, "r", encoding="utf-8", errors="replace") as fh:
+                        text = fh.read()
+                    if "language_level" in text:
+                        continue
+                    with open(match, "w", encoding="utf-8") as fh:
+                        fh.write(directive + text)
+                    patched_count += 1
+                except OSError:
+                    pass
+
+    if patched_count:
+        print(f"[p4a_hook] Added language_level=3 to {patched_count} .pyx/.pxd file(s)")
+
+
 def before_apk_build(toolchain):
     """Called by p4a before APK assembly – extra safety-net to patch pyjnius."""
     try:
+        _ensure_language_level(toolchain)
         arch_obj = getattr(toolchain, 'archs', [None])[0]
         if arch_obj:
             fix_pyjnius(arch_obj)

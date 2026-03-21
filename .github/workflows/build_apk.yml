@@ -168,9 +168,9 @@ jobs:
           pip install --upgrade pip setuptools wheel
           pip install buildozer cython==0.29.36
 
-      - name: Set language_level=3 in cached .pyx files (Cython pre-step)
-        # Add the '# cython: language_level=3' directive to any .pyx file in
-        # the buildozer cache that lacks it.  This prevents the warning:
+      - name: Set language_level=3 in cached .pyx/.pxd files (Cython pre-step)
+        # Add the '# cython: language_level=3' directive to any .pyx/.pxd file
+        # in the buildozer cache that lacks it.  This prevents the warning:
         #   "Cython directive 'language_level' not set, using 2 for now (Py2)."
         # and avoids Python 2 / Python 3 semantic mismatches during compilation.
         run: |
@@ -179,17 +179,21 @@ jobs:
 
           directive = "# cython: language_level=3\n"
           patched_count = 0
-          for pyx in Path(".buildozer").rglob("*.pyx"):
-              try:
-                  text = pyx.read_text(encoding="utf-8", errors="replace")
-                  if "language_level" not in text:
-                      pyx.write_text(directive + text, encoding="utf-8")
-                      print(f"[cython-pre] Added language_level=3 to: {pyx}")
-                      patched_count += 1
-              except OSError as e:
-                  print(f"[cython-pre] WARNING: Could not patch {pyx}: {e}")
+          for search_dir in [Path(".buildozer"), Path.home() / ".buildozer"]:
+              if not search_dir.exists():
+                  continue
+              for ext in ("*.pyx", "*.pxd"):
+                  for pyx in search_dir.rglob(ext):
+                      try:
+                          text = pyx.read_text(encoding="utf-8", errors="replace")
+                          if "language_level" not in text:
+                              pyx.write_text(directive + text, encoding="utf-8")
+                              print(f"[cython-pre] Added language_level=3 to: {pyx}")
+                              patched_count += 1
+                      except OSError as e:
+                          print(f"[cython-pre] WARNING: Could not patch {pyx}: {e}")
 
-          print(f"[cython-pre] Patched {patched_count} .pyx file(s).")
+          print(f"[cython-pre] Patched {patched_count} file(s).")
           PYEOF
 
       - name: Patch cached pyjnius source (long → int, jlong typedef)
@@ -197,16 +201,22 @@ jobs:
           python3 - <<'PYEOF'
           import re
           from pathlib import Path
-          for pxi in Path(".buildozer").rglob("jnius*.pxi"):
-              try:
-                  content = pxi.read_text(encoding="utf-8", errors="replace")
-                  patched = re.sub(r"\blong\b", "int", content)
-                  patched = re.sub(r"ctypedef\s+int\s+int\s+jlong", "ctypedef long jlong", patched)
-                  if patched != content:
-                      pxi.write_text(patched, encoding="utf-8")
-                      print(f"Patched: {pxi}")
-              except OSError as e:
-                  print(f"Could not patch {pxi}: {e}")
+          _SENTINEL = "\x00LONGLONG\x00"
+          for search_dir in [Path(".buildozer"), Path.home() / ".buildozer"]:
+              if not search_dir.exists():
+                  continue
+              for pxi in search_dir.rglob("jnius*.pxi"):
+                  try:
+                      content = pxi.read_text(encoding="utf-8", errors="replace")
+                      guarded = content.replace("long long", _SENTINEL)
+                      patched = re.sub(r"\blong\b", "int", guarded)
+                      patched = patched.replace(_SENTINEL, "long long")
+                      patched = re.sub(r"ctypedef\s+int\s+int\s+jlong", "ctypedef long long jlong", patched)
+                      if patched != content:
+                          pxi.write_text(patched, encoding="utf-8")
+                          print(f"Patched (safe): {pxi}")
+                  except OSError as e:
+                      print(f"Could not patch {pxi}: {e}")
           print("pyjnius cache patch done.")
           PYEOF
 

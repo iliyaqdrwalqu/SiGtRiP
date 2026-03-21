@@ -24,7 +24,7 @@ on:
     - cron: '0 9 * * *'
 
   workflow_run:
-    workflows: ['🏗️ Build ARGOS APK']
+    workflows: ['🏗️ Build ARGOS Client APK']
     types: [completed]
 
 permissions:
