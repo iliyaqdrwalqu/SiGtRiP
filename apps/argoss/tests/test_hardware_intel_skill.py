@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 def _load_skill_module():
     # Исторически файл в репозитории называется именно `ardware_intel.py`.
-    path = Path(__file__).resolve().parents[1] / "ardware_intel.py"
+    path = Path(__file__).resolve().parents[1] / "hardware_intel.py"
     spec = importlib.util.spec_from_file_location("hardware_intel", path)
     module = importlib.util.module_from_spec(spec)
     assert spec is not None and spec.loader is not None
