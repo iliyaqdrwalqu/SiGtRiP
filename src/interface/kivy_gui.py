@@ -130,9 +130,13 @@ if KIVY_OK:
         pass
 
     class ArgosGUI(App):
-        def __init__(self, core=None, **kwargs):
+        def __init__(self, core=None, admin=None, flasher=None,
+                     location: str = "", **kwargs):
             super().__init__(**kwargs)
-            self.core = core
+            self.core     = core
+            self.admin    = admin
+            self.flasher  = flasher
+            self._location = location
             self._history = []
             self.core_callback = None
 
@@ -217,8 +221,12 @@ if KIVY_OK:
 else:
     # Заглушка если Kivy не установлен
     class ArgosGUI:
-        def __init__(self, core=None, **kwargs):
-            self.core = core
+        def __init__(self, core=None, admin=None, flasher=None,
+                     location: str = "", **kwargs):
+            self.core     = core
+            self.admin    = admin
+            self.flasher  = flasher
+            self._location = location
             self.core_callback = None
 
         def run(self):
