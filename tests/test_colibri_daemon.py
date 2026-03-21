@@ -2,7 +2,7 @@ import builtins
 
 import pytest
 
-import colibri_daemon
+from src.connectivity import colibri_daemon
 
 
 def test_parse_args_supports_daemon_mode_and_pid_file():

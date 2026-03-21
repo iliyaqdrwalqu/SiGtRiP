@@ -2,8 +2,10 @@
 import sys
 import os
 
-# Ensure src/ is importable
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Ensure repo root and scripts/ are importable
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _ROOT)
+sys.path.insert(0, os.path.join(_ROOT, "scripts"))
 
 
 def pytest_configure(config):
