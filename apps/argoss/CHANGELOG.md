@@ -5,6 +5,24 @@
 
 ---
 
+## [2.1.3] — 2026-03-21
+
+### 🔄 Обновлено
+
+- **Синхронизация модулей** — добавлены 21 модуль из корневого проекта:
+  `ai_failover`, `awareness`, `ghost_c2`, `industrial_protocols`,
+  `neural_swarm`, `full_audit`, `graceful_shutdown`, `health_monitor`,
+  `kivy_local_ui`, `style`, `voice_manager`, `wear_os_ui`,
+  `lazarus_protocol`, `self_sustain`, `browser_conduit`, `web_explorer`,
+  `startup_validator`, `status_report`, `sub_agency`, `vision/__init__`,
+  `shadow_vision`
+- **Версия** обновлена до 2.1.3 во всех конфигурационных файлах
+  (`pyproject.toml`, `buildozer.spec`, `Dockerfile`, `docker-compose.yml`,
+  `setup_argos.nsi`, `model_meta.json`, `manifest.yaml`)
+- **Совместимость** — приложение полностью синхронизировано с корневым репозиторием
+
+---
+
 ## [2.1.0] — 2026-03-19 🔱 ФИНАЛЬНЫЙ РЕЛИЗ
 
 > *«Аргос не спит. Аргос видит. Аргос помнит.»*

@@ -5,7 +5,7 @@
 ; ════════════════════════════════════════════════════════════
 
 !define APP_NAME      "Argos Universal OS"
-!define APP_VERSION   "1.0.0"
+!define APP_VERSION   "2.1.3"
 !define APP_EXE       "argos.exe"
 !define INSTALL_DIR   "$PROGRAMFILES64\ArgosUniversalOS"
 !define REG_KEY       "Software\Microsoft\Windows\CurrentVersion\Uninstall\ArgosUniversalOS"
