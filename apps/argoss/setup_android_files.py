@@ -229,35 +229,12 @@ def main():
     file_paths_xml.write_text(FILE_PATHS_XML, encoding="utf-8")
     print(f"✅ Создан: {file_paths_xml}")
 
-    # 2. Обновляем p4a_hook.py
-    hook_path = Path("p4a_hook.py")
-    hook_path.write_text(P4A_HOOK, encoding="utf-8")
-    print(f"✅ Обновлён: {hook_path}")
-
-    # 3. Создаём директорию .buildozer/android/platform/ если нужно
-    provider_dir = Path(".buildozer/android/platform")
-    provider_dir.mkdir(parents=True, exist_ok=True)
-    provider_meta = provider_dir / "provider_meta.xml"
-    provider_meta.write_text(PROVIDER_MANIFEST_XML, encoding="utf-8")
-    print(f"✅ Создан: {provider_meta}")
-
-    # 4. Проверяем main_kivy.py на наличие KIVY_NO_ARGS
-    main_kivy = Path("main_kivy.py")
-    if main_kivy.exists():
-        content = main_kivy.read_text(encoding="utf-8", errors="replace")
-        if "KIVY_NO_ARGS" not in content:
-            # Добавляем в начало
-            new_content = 'import os\nos.environ.setdefault("KIVY_NO_ARGS", "1")\n\n' + content
-            main_kivy.write_text(new_content, encoding="utf-8")
-            print("✅ KIVY_NO_ARGS добавлен в main_kivy.py")
-    else:
-        print("⚠️  main_kivy.py не найден — создай его для Android сборки")
-
     print("\n" + "─" * 50)
     print("✅ Готово! Теперь:")
-    print("  1. Убедись что buildozer.spec обновлён (скачан выше)")
-    print("  2. Для локальной сборки: buildozer android debug")
-    print("  3. Для GitHub Actions: git push — APK соберётся автоматически")
+    print("  1. Убедись что buildozer.spec содержит android.add_src = res")
+    print("  2. FileProvider вставляется автоматически в p4a_hook.py (after_apk_build)")
+    print("  3. Для локальной сборки: buildozer android debug")
+    print("  4. Для GitHub Actions: git push — APK соберётся автоматически")
     print("\nAPK будет в папке bin/")
     print("При установке через SAI ошибка DISPLAY_NAME исчезнет.")
 

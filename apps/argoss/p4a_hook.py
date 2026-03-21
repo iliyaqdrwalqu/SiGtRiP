@@ -145,8 +145,21 @@ def before_apk_build(toolchain):
         print(f"[p4a_hook] before_apk_build warning: {exc}")
 
 
-def postbuild_arch(arch, api, **kwargs):
-    build_dir = getattr(arch, "build_dir", "")
-    dist_dir  = getattr(arch, "dist_dir",  ".buildozer/android/platform/build")
-    add_file_provider(build_dir or dist_dir)
-    add_file_paths_xml(dist_dir)
+def after_apk_build(toolchain):
+    """Called by p4a after manifest generation but before Gradle assembly.
+
+    Injects the FileProvider <provider> element inside <application> in the
+    generated AndroidManifest.xml.  Using android.extra_manifest_xml in
+    buildozer places XML at manifest root level, causing:
+        error: unexpected element <provider> found in <manifest>
+    This hook patches the manifest directly so <provider> is correctly nested
+    under <application>.
+    """
+    # p4a renders the manifest to src/main/AndroidManifest.xml relative to
+    # the dist directory (which is the current working directory for hooks).
+    for candidate_dir in ("src/main", "."):
+        if Path(candidate_dir, "AndroidManifest.xml").exists():
+            add_file_provider(candidate_dir)
+            return
+
+    print("[p4a_hook] after_apk_build: AndroidManifest.xml not found in expected locations, skipping FileProvider injection")

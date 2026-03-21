@@ -229,13 +229,6 @@ jobs:
           print("pyjnius cache patch done.")
           PYEOF
 
-      - name: Ensure FileProvider manifest XML exists
-        run: |
-          mkdir -p .buildozer/android/platform
-          if [ ! -f .buildozer/android/platform/provider_meta.xml ]; then
-            python setup_android_files.py
-          fi
-
       - name: Build Full ARGOS APK (debug)
         timeout-minutes: 45
         env:

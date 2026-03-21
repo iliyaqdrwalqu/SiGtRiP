@@ -101,6 +101,21 @@ def before_apk_build(toolchain) -> None:
     _disable_android_incompatible_modules(toolchain)
 
 
+def after_apk_build(toolchain) -> None:
+    """Called by p4a after the AndroidManifest.xml is generated but before Gradle runs.
+
+    Injects a ``<provider>`` element for ``androidx.core.content.FileProvider``
+    directly inside the ``<application>`` block of the generated manifest.
+    This fixes the SAI ``DISPLAY_NAME is null`` error and ensures the
+    ``<provider>`` is placed at the correct level in the manifest XML
+    (``<manifest><application><provider>``), not at manifest root level.
+
+    The hook runs while the current working directory is the distribution
+    directory, so the manifest is found at ``src/main/AndroidManifest.xml``.
+    """
+    _inject_file_provider()
+
+
 # ---------------------------------------------------------------------------
 # Patch implementations
 # ---------------------------------------------------------------------------
@@ -151,3 +166,65 @@ def _disable_android_incompatible_modules(toolchain) -> None:
             f"The build may still succeed if p4a already excludes grp/_uuid/_lzma for Android, "
             f"but watch for NDK linker errors."
         )
+
+
+def _inject_file_provider() -> None:
+    """Patch the generated AndroidManifest.xml to inject a FileProvider inside <application>.
+
+    ``android.extra_manifest_xml`` (buildozer) inserts XML at manifest root level,
+    which causes the Gradle error::
+
+        error: unexpected element <provider> found in <manifest>
+
+    Instead we patch the rendered manifest directly, placing ``<provider>``
+    immediately before ``</application>`` so it sits at the correct level:
+    ``<manifest> → <application> → <provider>``.
+
+    p4a renders the manifest to ``src/main/AndroidManifest.xml`` inside the
+    distribution directory, which is the current working directory when this
+    hook is invoked (``after_apk_build``).
+    """
+    manifest_path: str | None = None
+    for candidate in ("src/main/AndroidManifest.xml", "AndroidManifest.xml"):
+        if os.path.exists(candidate):
+            manifest_path = candidate
+            break
+
+    if manifest_path is None:
+        for found in glob.glob("**/AndroidManifest.xml", recursive=True):
+            manifest_path = found
+            break
+
+    if manifest_path is None:
+        print("[p4a_hook] after_apk_build: AndroidManifest.xml not found, skipping FileProvider injection")
+        return
+
+    with open(manifest_path, "r", encoding="utf-8") as fh:
+        content = fh.read()
+
+    if "FileProvider" in content:
+        print(f"[p4a_hook] FileProvider already present in {manifest_path}, skipping")
+        return
+
+    provider_xml = (
+        "\n    <provider\n"
+        "        android:name=\"androidx.core.content.FileProvider\"\n"
+        "        android:authorities=\"${applicationId}.provider\"\n"
+        "        android:exported=\"false\"\n"
+        "        android:grantUriPermissions=\"true\">\n"
+        "        <meta-data\n"
+        "            android:name=\"android.support.FILE_PROVIDER_PATHS\"\n"
+        "            android:resource=\"@xml/file_paths\" />\n"
+        "    </provider>"
+    )
+
+    if "</application>" not in content:
+        print(f"[p4a_hook] </application> tag not found in {manifest_path}, skipping FileProvider injection")
+        return
+
+    content = content.replace("</application>", provider_xml + "\n    </application>", 1)
+
+    with open(manifest_path, "w", encoding="utf-8") as fh:
+        fh.write(content)
+
+    print(f"[p4a_hook] FileProvider injected into {manifest_path}")

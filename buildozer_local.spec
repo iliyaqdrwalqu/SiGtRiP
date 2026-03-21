@@ -40,10 +40,12 @@ android.minapi = 24
 android.ndk = 25b
 android.archs = arm64-v8a
 
-# FileProvider
+# [FIX-SAI-FILEPROVIDER]
+# FileProvider is injected into AndroidManifest.xml by the p4a_hook.py
+# after_apk_build hook, which places <provider> correctly inside <application>.
+# The res/xml/file_paths.xml resource (required by the provider) is included
+# via android.add_src below.
 android.add_src = res
-android.manifest.attributes = android:requestLegacyExternalStorage="true"
-android.extra_manifest_xml = .buildozer/android/platform/provider_meta.xml
 
 # Enable Android features
 android.accept_sdk_license = True
