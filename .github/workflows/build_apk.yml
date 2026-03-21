@@ -163,10 +163,12 @@ jobs:
           key: pip-buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
           restore-keys: pip-buildozer-${{ runner.os }}-
 
-      - name: Install Python build tools
+      - name: Install Python build tools (venv)
         run: |
-          pip install --upgrade pip setuptools wheel
-          pip install buildozer cython==0.29.36
+          python3 -m venv .venv
+          echo "$GITHUB_WORKSPACE/.venv/bin" >> "$GITHUB_PATH"
+          .venv/bin/pip install --upgrade pip setuptools wheel
+          .venv/bin/pip install buildozer cython==0.29.36
 
       - name: Set language_level=3 in cached .pyx/.pxd files (Cython pre-step)
         # Add the '# cython: language_level=3' directive to any .pyx/.pxd file

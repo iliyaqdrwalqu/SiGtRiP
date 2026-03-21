@@ -207,6 +207,48 @@ def _disable_android_incompatible_modules(toolchain) -> None:
         )
 
 
+_FILE_PATHS_XML = """\
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- External storage (Downloads, Documents, etc.) -->
+    <external-path name="external_files" path="." />
+    <!-- Internal app files directory -->
+    <files-path name="internal_files" path="." />
+    <!-- App cache directory -->
+    <cache-path name="cache_files" path="." />
+    <!-- External cache directory -->
+    <external-cache-path name="external_cache" path="." />
+    <!-- External app-specific files (Android 10+ scoped storage) -->
+    <external-files-path name="external_app_files" path="." />
+</paths>
+"""
+
+
+def _ensure_file_paths_xml() -> None:
+    """Create ``src/main/res/xml/file_paths.xml`` in the distribution directory.
+
+    This resource file is required by ``androidx.core.content.FileProvider``
+    (injected by :func:`_inject_file_provider`).  Without it the Gradle
+    ``processDebugResources`` task fails with::
+
+        error: resource xml/file_paths … not found
+        error: failed processing manifest.
+
+    The function is idempotent — if the file already exists it is not overwritten.
+    It must be called while the current working directory is the distribution
+    directory (i.e. from ``after_apk_build``).
+    """
+    xml_dir = os.path.join("src", "main", "res", "xml")
+    os.makedirs(xml_dir, exist_ok=True)
+    dest = os.path.join(xml_dir, "file_paths.xml")
+    if not os.path.exists(dest):
+        with open(dest, "w", encoding="utf-8") as fh:
+            fh.write(_FILE_PATHS_XML)
+        print(f"[p4a_hook] Created {dest}")
+    else:
+        print(f"[p4a_hook] {dest} already exists, skipping")
+
+
 def _inject_file_provider() -> None:
     """Patch the generated AndroidManifest.xml to inject a FileProvider inside <application>.
 
@@ -222,7 +264,14 @@ def _inject_file_provider() -> None:
     p4a renders the manifest to ``src/main/AndroidManifest.xml`` inside the
     distribution directory, which is the current working directory when this
     hook is invoked (``after_apk_build``).
+
+    Also creates ``src/main/res/xml/file_paths.xml`` (required by the provider)
+    so that Gradle's ``processDebugResources`` task can resolve ``@xml/file_paths``.
     """
+    # Always ensure the XML resource file exists regardless of whether the
+    # FileProvider entry is already in the manifest.
+    _ensure_file_paths_xml()
+
     manifest_path: str | None = None
     for candidate in ("src/main/AndroidManifest.xml", "AndroidManifest.xml"):
         if os.path.exists(candidate):

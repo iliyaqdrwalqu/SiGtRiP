@@ -166,10 +166,12 @@ jobs:
           key: pip-buildozer-full-${{ runner.os }}-${{ hashFiles('buildozer_local.spec') }}
           restore-keys: pip-buildozer-full-${{ runner.os }}-
 
-      - name: Install Python build tools
+      - name: Install Python build tools (venv)
         run: |
-          pip install --upgrade pip
-          pip install buildozer cython==0.29.36 "pyjnius>=1.6.1"
+          python3 -m venv .venv
+          echo "$GITHUB_WORKSPACE/.venv/bin" >> "$GITHUB_PATH"
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install buildozer cython==0.29.36 "pyjnius>=1.6.1"
 
       - name: Clean stale Cython build artifacts
         run: |
