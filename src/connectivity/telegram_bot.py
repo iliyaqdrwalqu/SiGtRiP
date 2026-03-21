@@ -1,5 +1,6 @@
 import os
 import asyncio
+import shlex
 import tempfile
 import subprocess
 from pathlib import Path
@@ -38,7 +39,7 @@ class ArgosTelegram:
             return False, "ARGOS_APK_BUILD_CMD не задан. Пример: buildozer -v android debug"
 
         try:
-            subprocess.run(cmd, shell=True, check=True)
+            subprocess.run(shlex.split(cmd), check=True)
         except subprocess.CalledProcessError as e:
             return False, f"Сборка APK завершилась с ошибкой: {e}"
         except Exception as e:
