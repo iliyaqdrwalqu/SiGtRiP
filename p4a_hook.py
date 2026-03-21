@@ -97,6 +97,7 @@ def before_apk_build(toolchain) -> None:
     safety net to patch any pyjnius Python source files that may still reference
     the Python-2-only ``long`` builtin.
     """
+    _ensure_language_level(toolchain)
     _fix_pyjnius(toolchain)
     _disable_android_incompatible_modules(toolchain)
 
@@ -142,6 +143,44 @@ def _fix_pyjnius(toolchain) -> None:
 
         for match in glob.glob(os.path.join(root, "**", "jni.pxi"), recursive=True):
             _patch_jni_jlong(match)
+
+
+def _ensure_language_level(toolchain) -> None:
+    """Add ``# cython: language_level=3`` to all .pyx/.pxd files missing it.
+
+    Cython 0.29 defaults to ``language_level=2`` (Python 2 semantics) and
+    emits a FutureWarning when the directive is absent.  Patching the
+    directive into every source file before compilation silences the warning
+    and ensures Python 3 semantics are used consistently.
+    """
+    directive = "# cython: language_level=3\n"
+    storage = getattr(toolchain, "storage_dir", None) or ""
+    search_roots = [
+        storage,
+        os.path.expanduser("~/.buildozer"),
+        os.path.join(os.getcwd(), ".buildozer"),
+        os.getcwd(),
+    ]
+
+    patched_count = 0
+    for root in search_roots:
+        if not root or not os.path.isdir(root):
+            continue
+        for ext in ("*.pyx", "*.pxd"):
+            for match in glob.glob(os.path.join(root, "**", ext), recursive=True):
+                try:
+                    with open(match, "r", encoding="utf-8", errors="replace") as fh:
+                        text = fh.read()
+                    if "language_level" in text:
+                        continue
+                    with open(match, "w", encoding="utf-8") as fh:
+                        fh.write(directive + text)
+                    patched_count += 1
+                except OSError:
+                    pass
+
+    if patched_count:
+        print(f"[p4a_hook] Added language_level=3 to {patched_count} .pyx/.pxd file(s)")
 
 
 def _disable_android_incompatible_modules(toolchain) -> None:

@@ -23,21 +23,19 @@ jobs:
       run: |
         set -euxo pipefail
         python -m pip install --upgrade pip
-        pip install -r requirements.txx
-        
-- name: Build package
-  run: |
-    set -euxo pipefail
-    python -m pip install --upgrade build
-    rm -rf "${GITHUB_WORKSPACE}/dist"
-    tmpdir="$(mktemp -d)"
-    trap 'rm -rf "${tmpdir}"' EXIT
-    # python build.py  # удалено, так как файла нет
-    cd "$tmpdir"
-    python -m build --outdir "${GITHUB_WORKSPACE}/dist" --sdist --wheel "${GITHUB_WORKSPACE}"
-    echo "Build contents:"
-    ls -l "${GITHUB_WORKSPACE}/dist"
-    
+        pip install -r requirements.txt
+
+    - name: Build package
+      run: |
+        set -euxo pipefail
+        python -m pip install --upgrade build
+        rm -rf "${GITHUB_WORKSPACE}/dist"
+        tmpdir="$(mktemp -d)"
+        trap 'rm -rf "${tmpdir}"' EXIT
+        cd "$tmpdir"
+        python -m build --outdir "${GITHUB_WORKSPACE}/dist" --sdist --wheel "${GITHUB_WORKSPACE}"
+        echo "Build contents:"
+        ls -l "${GITHUB_WORKSPACE}/dist"
 
     - name: List artifacts
       run: |
