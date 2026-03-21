@@ -26,15 +26,27 @@ os.environ.setdefault("CYTHON_DEFAULT_LANGUAGE_LEVEL", "3")
 # Helpers
 # ---------------------------------------------------------------------------
 
+_LONG_LONG_PLACEHOLDER = "__ARGOS_LONG_LONG__"
+
+
 def _patch_long_to_int(path: str) -> None:
-    """Replace all word-boundary occurrences of ``long`` with ``int`` in *path*.
+    """Replace Python-2-only ``long`` builtin with ``int`` in *path*.
 
     This covers both function-call style (``long(x)``) and type-reference style
     (``isinstance(x, long)``) that pyjnius uses for Python 2 compatibility.
+
+    ПАТЧ [FIX-LONG-LONG]: C-level ``long long`` type declarations are protected
+    before the broad substitution so they are never turned into ``int int``,
+    which would cause Cython's "Declarator should be empty" error.
     """
     with open(path, "r", encoding="utf-8") as fh:
         src = fh.read()
-    patched = re.sub(r"\blong\b", "int", src)
+    # Step 1: protect C ``long long`` declarations from the broad replacement.
+    protected = src.replace("long long", _LONG_LONG_PLACEHOLDER)
+    # Step 2: replace Python 2 ``long`` builtin → ``int``.
+    patched = re.sub(r"\blong\b", "int", protected)
+    # Step 3: restore ``long long``.
+    patched = patched.replace(_LONG_LONG_PLACEHOLDER, "long long")
     if patched == src:
         return
     with open(path, "w", encoding="utf-8") as fh:
@@ -42,10 +54,14 @@ def _patch_long_to_int(path: str) -> None:
     print(f"[p4a_hook] Patched 'long' -> 'int' in: {path}")
 
 def _patch_jni_jlong(path: str) -> None:
-    """Replace invalid ``ctypedef int int jlong`` definition with ``long``."""
+    """Fix ``ctypedef int int jlong`` artefact left by over-broad long→int patch.
+
+    ``jlong`` is the JNI 64-bit integer type; it must be declared as
+    ``ctypedef long long jlong`` so Cython generates the correct C type.
+    """
     with open(path, "r", encoding="utf-8") as fh:
         src = fh.read()
-    patched = re.sub(r"ctypedef\s+int\s+int\s+jlong", "ctypedef long jlong", src)
+    patched = re.sub(r"ctypedef\s+int\s+int\s+jlong", "ctypedef long long jlong", src)
     if patched == src:
         return
     with open(path, "w", encoding="utf-8") as fh:
