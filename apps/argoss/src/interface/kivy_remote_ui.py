@@ -381,6 +381,7 @@ if KIVY_OK:
             tp.add_widget(tab_console)
 
             root.add_widget(tp)
+            tp.default_tab = tab_settings
             return root
 
 else:

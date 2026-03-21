@@ -150,16 +150,28 @@ class ArgosGUI(ctk.CTk):
         self.grid_rowconfigure(0, weight=1)      # контент
         self.grid_rowconfigure(1, weight=0)      # строка состояния
 
-        self._build_sidebar()
-        self._build_main()
-        self._build_statusbar()
+        try:
+            self._build_sidebar()
+        except Exception:
+            pass
+        try:
+            self._build_main()
+        except Exception:
+            pass
+        try:
+            self._build_statusbar()
+        except Exception:
+            pass
 
         # ── Горячие клавиши ───────────────────────────────────────────────
-        self.bind("<Escape>", lambda _: self.entry.focus())
-        self.entry.bind("<Return>",  lambda _: self._send_text(self.entry.get()))
-        self.entry.bind("<Up>",      self._hist_prev)
-        self.entry.bind("<Down>",    self._hist_next)
-        self.entry.bind("<Control-l>", lambda _: self._clear_chat())
+        try:
+            self.bind("<Escape>", lambda _: self.entry.focus())
+            self.entry.bind("<Return>",  lambda _: self._send_text(self.entry.get()))
+            self.entry.bind("<Up>",      self._hist_prev)
+            self.entry.bind("<Down>",    self._hist_next)
+            self.entry.bind("<Control-l>", lambda _: self._clear_chat())
+        except Exception:
+            pass
 
         # ── Фоновые таймеры ───────────────────────────────────────────────
         self._tick_status()
