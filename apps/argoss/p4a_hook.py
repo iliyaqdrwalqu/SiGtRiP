@@ -140,7 +140,7 @@ def _ensure_language_level(toolchain):
     search_roots = [
         storage,
         os.path.expanduser("~/.buildozer"),
-        str(Path(".buildozer")),
+        os.path.join(os.getcwd(), ".buildozer"),
         os.getcwd(),
     ]
 
