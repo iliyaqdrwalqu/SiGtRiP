@@ -12,7 +12,7 @@
 [![Android APK](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/android-apk.yml/badge.svg)](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/android-apk.yml)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iliyaqdrwalqu/SiGtRiP/blob/main/colab/ARGOS_Colab_Launch.ipynb)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-
+[![🏗️ Build ARGOS Client APK](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/build_apk.yml/badge.svg)](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/build_apk.yml)
 > **Docker image:** `ghcr.io/iliyaqdrwalqu/argoss:latest` — published automatically on every push to `main`.  
 > **Android APK:** download the latest debug APK from the [Actions tab](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/android-apk.yml) → select the most recent run → expand **Artifacts** → download `argos-apk-debug-<run_number>`.
 
