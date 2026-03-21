@@ -2,6 +2,9 @@
 agent.py — Режим автономного агента Аргоса
   Разбивает сложную задачу на шаги и выполняет цепочку команд.
   "сканируй сеть → найди новые устройства → запиши в файл → отправь в Telegram"
+
+  Суб-агентства: каждый шаг плана сначала передаётся подходящему SubAgent-у
+  (через SubAgencyManager); если никто не взялся — выполняется через core напрямую.
 """
 import re
 import time
@@ -17,6 +20,25 @@ class ArgosAgent:
         self.core    = core
         self._running = False
         self._results = []
+        self._sub_agency = None  # инициализируется из ArgosCore
+
+    # ── Суб-агентства ────────────────────────────────────────────────────
+
+    def set_sub_agency(self, manager) -> None:
+        """Подключить SubAgencyManager к агенту."""
+        self._sub_agency = manager
+        log.info("ArgosAgent: SubAgencyManager подключён (%d субагентств)", len(manager._agents))
+
+    def _execute_step(self, step: str, admin, flasher) -> str:
+        """Выполнить один шаг плана: сначала через суб-агентство, затем через core."""
+        # Попытка делегировать специализированному субагенту
+        if self._sub_agency is not None:
+            sub_result = self._sub_agency.dispatch(step)
+            if sub_result is not None:
+                return sub_result
+        # Стандартный путь через core
+        res = self.core.process_logic(step, admin, flasher)
+        return res.get("answer", "") if isinstance(res, dict) else str(res)
 
     def execute_plan(self, plan: str, admin, flasher) -> str:
         """Разбирает план на шаги и выполняет последовательно."""
@@ -28,7 +50,8 @@ class ArgosAgent:
         self._results = []
         self._running = True
 
-        results = [f"🤖 АГЕНТ АКТИВИРОВАН — {len(steps)} шагов:\n"]
+        agency_tag = " [суб-агентства]" if self._sub_agency else ""
+        results = [f"🤖 АГЕНТ АКТИВИРОВАН{agency_tag} — {len(steps)} шагов:\n"]
 
         for i, step in enumerate(steps, 1):
             if not self._running:
@@ -43,8 +66,7 @@ class ArgosAgent:
             log.info("Шаг %d: %s", i, step)
 
             try:
-                res = self.core.process_logic(step, admin, flasher)
-                answer = res.get("answer", "")[:300]
+                answer = self._execute_step(step, admin, flasher)[:300]
                 results.append(f"   ✅ {answer}")
                 self._results.append({"step": step, "result": answer, "ok": True})
             except Exception as e:
