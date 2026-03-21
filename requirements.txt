@@ -45,6 +45,12 @@ Pillow>=10.0.0
 # ── Парсинг
 beautifulsoup4>=4.12.0
 
+# ── WebSocket
+websockets>=14.1
+
+# ── SMS
+smsmobileapi>=2.0.0
+
 # ── Версионирование
 packaging>=23.0
 networkx>=3.2.1
