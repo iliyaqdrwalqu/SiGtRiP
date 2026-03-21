@@ -913,22 +913,37 @@ pyinstaller argos.spec
 
 ## 📱 Сборка Android APK (Buildozer)
 
-### Локальная сборка
+### Локальная сборка (рекомендуется в venv)
 
 ```bash
-# 1. Установить зависимости (Linux/macOS/WSL2)
-sudo apt-get install -y openjdk-17-jdk build-essential git zip unzip
+# 1. Установить системные зависимости (Linux/WSL2)
+sudo apt-get install -y openjdk-17-jdk build-essential git zip unzip \
+    libssl-dev libffi-dev libsqlite3-dev zlib1g-dev \
+    autoconf automake libtool cmake pkg-config ccache
+
+# 2. Создать и активировать виртуальное окружение (venv)
+python3 -m venv .venv
+source .venv/bin/activate   # Windows CMD: .venv\Scripts\activate.bat | PowerShell: .venv\Scripts\Activate.ps1
+
+# 3. Установить Python-зависимости для сборки
+pip install --upgrade pip
 pip install buildozer cython==0.29.36 "pyjnius>=1.6.1"
 
-# 2. Debug APK (быстро, ~30 мин первый раз)
+# 4. Debug APK (~30 мин первый раз, кэш ускоряет последующие сборки)
 buildozer android debug
 
-# 3. Release APK (подписанный)
+# 5. Release APK (подписанный)
 buildozer android release
 
 # APK появится в папке bin/
 ls bin/*.apk
+
+# После окончания работы деактивировать venv
+deactivate
 ```
+
+> **Почему venv?** Изоляция зависимостей buildozer/cython предотвращает конфликты
+> с системными пакетами Python и обеспечивает воспроизводимость сборки.
 
 ### Кастомные патчи pyjnius
 
