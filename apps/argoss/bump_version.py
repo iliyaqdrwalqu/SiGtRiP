@@ -15,18 +15,18 @@ OLD = "2.1.0"
 NEW = "2.1.3"
 
 # Файл → (паттерн для поиска, заменяемая строка)
-_OLD_ESC = OLD.replace(".", r"\.")
+_OLD_RE = OLD.replace(".", r"\.")
 TARGETS = [
-    ("pyproject.toml",    rf'version = "{_OLD_ESC}"',         f'version = "{NEW}"'),
-    ("pyproject.toml",    rf"version = '{_OLD_ESC}'",         f"version = '{NEW}'"),
-    ("pack_archive.py",   rf'version="{_OLD_ESC}"',           f'version="{NEW}"'),
-    ("pack_archive.py",   rf"version='{_OLD_ESC}'",           f"version='{NEW}'"),
-    ("__init__.py",       rf'__version__ = "{_OLD_ESC}"',     f'__version__ = "{NEW}"'),
-    ("__init__.py",       rf"__version__ = '{_OLD_ESC}'",     f"__version__ = '{NEW}'"),
-    ("README.md",         rf"ARGOS UNIVERSAL OS \(v{_OLD_ESC}\)", f"ARGOS UNIVERSAL OS (v{NEW})"),
-    ("README.md",         rf"\[{_OLD_ESC}\]",                  f"[{NEW}]"),
-    ("manifest.yaml",     rf"version: {_OLD_ESC}",             f"version: {NEW}"),
-    ("manifest.json",     rf'"version": "{_OLD_ESC}"',         f'"version": "{NEW}"'),
+    ("pyproject.toml",    rf'version = "{_OLD_RE}"',         f'version = "{NEW}"'),
+    ("pyproject.toml",    rf"version = '{_OLD_RE}'",         f"version = '{NEW}'"),
+    ("pack_archive.py",   rf'version="{_OLD_RE}"',           f'version="{NEW}"'),
+    ("pack_archive.py",   rf"version='{_OLD_RE}'",           f"version='{NEW}'"),
+    ("__init__.py",       rf'__version__ = "{_OLD_RE}"',     f'__version__ = "{NEW}"'),
+    ("__init__.py",       rf"__version__ = '{_OLD_RE}'",     f"__version__ = '{NEW}'"),
+    ("README.md",         rf"ARGOS UNIVERSAL OS \(v{_OLD_RE}\)", f"ARGOS UNIVERSAL OS (v{NEW})"),
+    ("README.md",         rf"\[{_OLD_RE}\]",                  f"[{NEW}]"),
+    ("manifest.yaml",     rf"version: {_OLD_RE}",             f"version: {NEW}"),
+    ("manifest.json",     rf'"version": "{_OLD_RE}"',         f'"version": "{NEW}"'),
 ]
 
 # Файлы для удаления (временные патчи)
