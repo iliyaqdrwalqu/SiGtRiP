@@ -12,16 +12,24 @@ os.environ.setdefault("CYTHON_DEFAULT_LANGUAGE_LEVEL", "3")
 
 
 def fix_pyjnius(arch):
-    """Фикс pyjnius для Python 3 (убирает использование 'long' как тип Python 2)."""
+    """Фикс pyjnius для Python 3 (убирает использование 'long' как тип Python 2).
+
+    Использует sentinel для защиты ``long long`` (валидный тип C в Cython-кастах
+    вида ``<long long>``), чтобы не получить ``int int``, которое Cython
+    отвергает с ошибкой "Declarator should be empty".
+    """
+    _SENTINEL = "\x00LONGLONG\x00"
     site_packages = arch.get_env_vars().get("PYTHONPATH", "")
     for sp in site_packages.split(":"):
         jnius_src = Path(sp) / "jnius" / "jnius_utils.pxi"
         if jnius_src.exists():
             content = jnius_src.read_text(errors="replace")
-            patched = re.sub(r"\blong\b", "int", content)
+            guarded = content.replace("long long", _SENTINEL)
+            patched = re.sub(r"\blong\b", "int", guarded)
+            patched = patched.replace(_SENTINEL, "long long")
             if patched != content:
                 jnius_src.write_text(patched)
-                print("[p4a_hook] pyjnius: fixed long → int")
+                print("[p4a_hook] pyjnius: fixed long → int (safe)")
 
 
 def fix_jni_typedef(arch):

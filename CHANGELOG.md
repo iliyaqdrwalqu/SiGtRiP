@@ -5,6 +5,63 @@
 
 ---
 
+## [Unreleased] — Android APK Build Fix Journal
+
+> **Журнал исправлений сборки Android APK.**
+> Каждая попытка задокументирована, чтобы не повторять одни и те же действия.
+
+---
+
+### ❌ Попытки 1–178 (до 2026-03-20): Ошибка "Declarator should be empty"
+
+**Симптом (из CI-лога):**
+```
+Error compiling Cython file:
+jnius/jnius_conversion.pxi:325:21: Declarator should be empty
+jnius/jnius_export_class.pxi:599:23: Declarator should be empty
+jnius/jnius_export_class.pxi:723:23: Declarator should be empty
+jnius/jnius_export_class.pxi:939:23: Declarator should be empty
+jnius/jnius_export_class.pxi:1027:23: Declarator should be empty
+jnius/jnius_proxy.pxi:168:54: Declarator should be empty
+```
+
+**Причина (диагностирована):**
+Патч `re.sub(r"\blong\b", "int", content)` заменял `long long` (валидный тип C)
+на `int int` (невалидный синтаксис Cython). Конкретные строки с проблемой:
+- `jnius_conversion.pxi:325` — `ret = [(<long long>j_longs[i]) ...]` → `(<int int>...)`
+- `jnius_export_class.pxi:599, 723, 939, 1027` — `ret = <long long>j_long` → `<int int>`
+- `jnius_proxy.pxi:168` — `NativeInvocationHandler(<long long><void *>py_obj)` → `(<int int>...)`
+
+Cython 3 интерпретирует `<int int>` как попытку объявить декларатор с пустым именем,
+отсюда ошибка **"Declarator should be empty"**.
+
+**Что пробовалось и не сработало:**
+- Смена версий `cython==0.29.36` / `cython==3.0.x` — не решает, т.к. ошибка в патче
+- Добавление `language_level=3` директив в .pyx файлы — не связано с этой ошибкой
+- Смена версии pyjnius — не помогает, пока применяется сломанный патч
+
+### ✅ Попытка 179 (2026-03-20): Корректный патч с защитой `long long`
+
+**Исправление:** Использование sentinel-стратегии:
+1. Заменить `long long` → временный маркер (защита C-типа)
+2. Заменить оставшиеся `\blong\b` → `int` (убирает Python 2 built-in)
+3. Восстановить `long long` из маркера
+
+**Затронутые файлы:**
+- `p4a-recipes/pyjnius/__init__.py` — `_fix_long_builtin()`
+- `p4a_hook.py` — `_patch_long_to_int()`
+- `apps/argoss/p4a_hook.py` — `fix_pyjnius()`
+- `.github/workflows/android-apk.yml` — inline patch step
+
+**Дополнительные улучшения в этом PR:**
+- `pyproject.toml` — добавлен `[tool.cython]` с `language_level = "3"`
+- CI — добавлено сохранение полного `buildozer_output.txt` как artifact
+- README — добавлен раздел по работе с кастомными патчами pyjnius
+
+**Статус:** ✅ Применено — ожидается успешный CI
+
+---
+
 ## [2.1.0] — 2026-03-19 🔱 ФИНАЛЬНЫЙ РЕЛИЗ
 
 > *«Аргос не спит. Аргос видит. Аргос помнит.»*

@@ -39,15 +39,45 @@ class PyjniusRecipe(_PyjniusBase):
     def _fix_long_builtin(build_dir):
         """Replace the Python-2-only ``long`` builtin with ``int`` in all .pxi files.
 
+
+        Strategy:
+          1. Protect ``long long`` (a valid C type used in Cython casts like
+             ``<long long>``) by temporarily replacing it with a sentinel so the
+             subsequent ``\\blong\\b`` substitution does not turn it into
+             ``int int``, which Cython rejects with "Declarator should be empty".
+          2. Replace remaining standalone ``long`` occurrences (Python 2 built-in
+             ``long`` type / callable) with ``int``.
+          3. Restore ``long long`` from the sentinel.
+          4. Fix the ``ctypedef long jlong`` definition in jni.pxi which the
+             broad replacement in step 2 would otherwise corrupt.
+        """
+        _SENTINEL = "\x00LONGLONG\x00"
+
         C-level ``long long`` type declarations are preserved intact so Cython
         does not produce "Declarator should be empty" errors.
         """
+
         build_path = Path(build_dir)
         if not build_path.exists():
             return
         for pxi_file in build_path.rglob('*.pxi'):
             try:
                 content = pxi_file.read_text(encoding='utf-8', errors='replace')
+
+                # Step 1: protect 'long long' C type
+                guarded = content.replace('long long', _SENTINEL)
+                # Step 2: replace standalone Python 2 'long' builtin with 'int'
+                patched = re.sub(r"\blong\b", "int", guarded)
+                # Step 3: restore 'long long'
+                patched = patched.replace(_SENTINEL, 'long long')
+                # Step 4: fix jlong typedef if corrupted by earlier bad patches
+                patched = re.sub(
+                    r"ctypedef\s+int\s+int\s+jlong", "ctypedef long jlong", patched
+                )
+                if patched != content:
+                    pxi_file.write_text(patched, encoding='utf-8')
+                    print(f"[custom pyjnius] Fixed long→int (safe) in {pxi_file.name}")
+
                 # Step 1: protect C ``long long`` from the broad replacement below.
                 protected = content.replace("long long", _LONG_LONG_PLACEHOLDER)
                 # Step 2: replace Python 2 ``long`` builtin with ``int``.
@@ -62,6 +92,7 @@ class PyjniusRecipe(_PyjniusBase):
                 if patched != content:
                     pxi_file.write_text(patched, encoding='utf-8')
                     print(f"[custom pyjnius] Patched long/jlong in {pxi_file.name}")
+
             except OSError as exc:
                 print(f"[custom pyjnius] Could not patch {pxi_file}: {exc}")
 
