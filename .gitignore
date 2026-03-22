@@ -22,3 +22,6 @@ data/chroma/chroma.sqlite3
 logs/
 .DS_Store
 builds/
+*.db-shm
+*.db-wal
+*.db
