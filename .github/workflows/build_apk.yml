@@ -9,10 +9,6 @@ on:
       - "src/**"
   pull_request:
     branches: [main]
-    paths:
-      - "main_kivy.py"
-      - "buildozer.spec"
-      - "src/**"
   workflow_dispatch:
     inputs:
       release_mode:
