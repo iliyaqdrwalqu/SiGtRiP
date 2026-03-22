@@ -242,3 +242,8 @@ jobs:
           path: bin/*.apk
           if-no-files-found: warn
           retention-days: 30
+
+      - name: Force no-user pip
+        run: |
+          pip config set global.no-user-site true
+          echo "PIP_NO_USER=1" >> $GITHUB_ENV
