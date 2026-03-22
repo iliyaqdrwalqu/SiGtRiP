@@ -86,6 +86,20 @@ jobs:
 
       - name: Patch python-for-android pip --user calls
         run: |
+          # Находим toolchain.py где прописан --user
+          find / -name "toolchain.py" -path "*/pythonforandroid/*" 2>/dev/null | while read f; do
+            echo "Patching: $f"
+            sed -i "s/pip_install_options = \[.--user.\]/pip_install_options = []/g" "$f" || true
+            sed -i "s/'--user'//g" "$f" || true
+            sed -i 's/"--user"//g' "$f" || true
+          done
+          find / -name "pip_*.py" -path "*/pythonforandroid/*" 2>/dev/null | while read f; do
+            sed -i "s/'--user'//g; s/\"--user\"//g" "$f" || true
+          done
+          # Проверяем остатки
+          echo "Remaining --user refs:"
+          find / -path "*/pythonforandroid*" -name "*.py" 2>/dev/null | xargs grep -l "user" 2>/dev/null | head -5 || true
+        run: |
           # Патчим все места где p4a использует pip --user
           PY=$(which python3)
           SITE=$(python3 -c "import site; print(site.getsitepackages()[0])")
