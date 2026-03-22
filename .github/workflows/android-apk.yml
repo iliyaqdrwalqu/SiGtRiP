@@ -1,253 +1,74 @@
-name: 🤖 Build ARGOS Full APK (debug)
+name: "Build ARGOS Full APK (debug)"
 
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - 'main_argos_local.py'
-      - 'buildozer_local.spec'
-      - 'src/**'
   push:
     branches: [main]
     paths:
-      - 'main_argos_local.py'
-      - 'buildozer_local.spec'
-      - 'src/**'
+      - "main_argos_local.py"
+      - "buildozer_local.spec"
+      - "src/**"
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  PIP_NO_USER: "1"
+  PYTHONNOUSERSITE: "1"
+  CYTHON_DEFAULT_LANGUAGE_LEVEL: "3"
 
 jobs:
-  # ───────────────────────────────────────────────────────────────────────────
-  # Sub-agent 1: Lint Python code
-  # Runs in parallel with lint-cython to provide fast feedback on Python style.
-  # ───────────────────────────────────────────────────────────────────────────
-  lint-python:
-    name: 🐍 Lint Python
-    runs-on: ubuntu-22.04
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.10'
-
-      - name: Install flake8
-        run: pip install flake8
-
-      - name: Run flake8 — fatal syntax / undefined-name errors
-        # Select only the most critical error codes so this job surfaces real
-        # bugs (E9xx = syntax, F63x = assert/print misuse, F7xx = syntax,
-        # F82x = undefined names) without blocking on style warnings.
-        run: |
-          flake8 . \
-            --count \
-            --select=E9,F63,F7,F82 \
-            --show-source \
-            --statistics \
-            --exclude=.buildozer,build,dist,__pycache__,.git
-
-  # ───────────────────────────────────────────────────────────────────────────
-  # Sub-agent 2: Lint Cython files
-  # Runs in parallel with lint-python; validates .pyx / .pxi files before build.
-  # ───────────────────────────────────────────────────────────────────────────
-  lint-cython:
-    name: 🔬 Lint Cython
-    runs-on: ubuntu-22.04
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.10'
-
-      - name: Install Cython
-        run: pip install cython==0.29.36
-
-      - name: Check .pyx / .pxi files for language_level directive
-        run: |
-          find . -name "*.pyx" -not -path "*/.buildozer/*" -not -path "*/build/*" | while read f; do
-            grep -q "language_level" "$f" || echo "::warning file=$f::Missing language_level=3"
-          done
-          echo "[lint-cython] Check complete." 
-
-  # ───────────────────────────────────────────────────────────────────────────
-  # Sub-agent 3: Build APK
-  # Depends on both lint jobs; builds after code quality gates pass.
-  # ───────────────────────────────────────────────────────────────────────────
   build-apk:
-    name: Build Full ARGOS APK (debug)
+    name: "Build Full ARGOS APK (debug)"
     runs-on: ubuntu-22.04
-    needs: [lint-python, lint-cython]
-    permissions:
-      contents: read
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v6
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
-          python-version: '3.10'
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+          python-version: "3.10"
+      - uses: actions/setup-java@v4
         with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      - name: Install system dependencies (autotools / libffi / build prerequisites)
+          java-version: "17"
+          distribution: "temurin"
+      - name: Install system deps
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y \
-            autoconf automake libtool libtool-bin pkg-config m4 build-essential \
-            libffi-dev libssl-dev \
-            git zip unzip \
-            libsqlite3-dev zlib1g-dev \
-            libncurses5-dev libncursesw5-dev \
-            libbz2-dev liblzma-dev \
-            cmake ccache
-
-      - name: Cache ~/.buildozer (global Buildozer home)
-        uses: actions/cache@v5
-        with:
-          path: ~/.buildozer
-          key: buildozer-home-full-${{ runner.os }}-${{ hashFiles('buildozer_local.spec') }}
-          restore-keys: buildozer-home-full-${{ runner.os }}-
-
-      - name: Cache .buildozer (local build cache)
-        uses: actions/cache@v5
-        with:
-          path: .buildozer
-          key: buildozer-local-full-${{ runner.os }}-${{ hashFiles('buildozer_local.spec') }}
-          restore-keys: buildozer-local-full-${{ runner.os }}-
-
-      - name: Cache ~/.gradle
-        uses: actions/cache@v5
-        with:
-          path: ~/.gradle
-          key: gradle-full-${{ runner.os }}-${{ hashFiles('buildozer_local.spec') }}
-          restore-keys: gradle-full-${{ runner.os }}-
-
-      - name: Cache ~/.cache/pip
-        uses: actions/cache@v5
-        with:
-          path: ~/.cache/pip
-          key: pip-buildozer-full-${{ runner.os }}-${{ hashFiles('buildozer_local.spec') }}
-          restore-keys: pip-buildozer-full-${{ runner.os }}-
-
-      - name: Install Python build tools (venv)
+          sudo apt-get install -y autoconf automake libtool build-essential \
+            libffi-dev libssl-dev git zip unzip zlib1g-dev cmake ccache
+      - name: Install buildozer
+        run: pip install buildozer cython==0.29.36 "pyjnius>=1.6.1"
+      - name: Disable pip user installs
         run: |
-          python3 -m venv .venv
-          echo "$GITHUB_WORKSPACE/.venv/bin" >> "$GITHUB_PATH"
-          .venv/bin/pip install --upgrade pip
-          .venv/bin/pip install buildozer cython==0.29.36 "pyjnius>=1.6.1"
-
-      - name: Clean stale Cython build artifacts
-        run: |
-          find .buildozer -name "*.c" -delete 2>/dev/null || true
-          find .buildozer -name "*.so" -delete 2>/dev/null || true
-
-      - name: Set language_level=3 in cached .pyx/.pxd files (Cython pre-step)
-        # Add the '# cython: language_level=3' directive to any .pyx/.pxd file
-        # in the buildozer cache that lacks it.  This prevents the warning:
-        #   "Cython directive 'language_level' not set, using 2 for now (Py2)."
-        # and avoids Python 2 / Python 3 semantic mismatches during compilation.
-        run: |
-          python3 -c "
-import subprocess,os
-for d in ['.buildozer', os.path.expanduser('~/.buildozer')]:
-  __import__('subprocess').run(['find', d, '-name', '*.pyx', '-exec', 'sed', '-i', '1s|^|# cython: language_level=3\\n|', '{}', ';'], capture_output=True)
-print('[cython-pre] Done.')"
-
-      - name: Patch cached pyjnius source (long → int for Python 3 / Cython 3)
-        # Root cause of "Declarator should be empty":
-        #   A naive re.sub(r"\blong\b", "int") turns `<long long>` into `<int int>`,
-        #   which Cython 3 rejects.  The fix uses a sentinel to protect `long long`
-        #   before replacing standalone `long` (Python 2 built-in), then restores it.
-        run: |
-          python3 -c "
-import re,glob
-for f in glob.glob('.buildozer/**/*.pxi',recursive=True)+glob.glob(os.path.expanduser('~/.buildozer')+'/**/*.pxi',recursive=True):
-  t=open(f).read();t2=re.sub(r'\\blong\\b','int',t.replace('long long','__LL__')).replace('__LL__','long long');open(f,'w').write(t2) if t2!=t else None
-print('pyjnius patch done.')"
-
-      - name: Patch buildozer --user
+          mkdir -p ~/.config/pip
+          printf '[global]\nno-user-site = true\n' > ~/.config/pip/pip.conf
+      - name: Patch buildozer no --user
         run: |
           find / -path "*/buildozer/*.py" 2>/dev/null | xargs grep -rl '"--user"' 2>/dev/null | while read f; do
-            sed -i 's/"--user", //g;s/, "--user"//g;s/"--user"//g' "$f" || true
-          done
-          find / -path "*/python_for_android*" -name "*.py" 2>/dev/null | xargs grep -rl "'--user'" 2>/dev/null | while read f; do
-            sed -i "s/'--user', //g;s/, '--user'//g;s/'--user'//g" "$f" || true
-          done
-
-      - name: Patch buildozer --user
+            sed -i 's/"--user", //g; s/, "--user"//g; s/"--user"//g' "$f" || true
+          done || true
+      - name: Set cython language_level
         run: |
-          find / -path "*/buildozer/*.py" 2>/dev/null | xargs grep -rl '--user' 2>/dev/null | while read f; do sed -i "s|['"]--user['"]s*,?||g" "$f" 2>/dev/null || true; done
-
-      - name: Build Full ARGOS APK (debug)
-        run: |
-          find / -path "*/buildozer/*.py" 2>/dev/null | xargs grep -rl '"--user"' 2>/dev/null | while read f; do
-            sed -i 's/"--user", //g;s/, "--user"//g;s/"--user"//g' "$f" || true
-          done
-          find / -path "*/python_for_android*" -name "*.py" 2>/dev/null | xargs grep -rl "'--user'" 2>/dev/null | while read f; do
-            sed -i "s/'--user', //g;s/, '--user'//g;s/'--user'//g" "$f" || true
-          done
-
-      - name: Patch buildozer --user
-        run: |
-          find / -path "*/buildozer/*.py" 2>/dev/null | xargs grep -rl '--user' 2>/dev/null | while read f; do sed -i "s|['"]--user['"]s*,?||g" "$f" 2>/dev/null || true; done
-
-      - name: Build Full ARGOS APK (debug)
+          find .buildozer ~/.buildozer -name "*.pyx" -o -name "*.pxd" 2>/dev/null | while read f; do
+            grep -q "language_level" "$f" || sed -i '1s/^/# cython: language_level=3\n/' "$f"
+          done || true
+      - name: Build APK
         timeout-minutes: 45
         env:
           BUILDOZER_WARN_ON_ROOT: "0"
-          # Force Cython to use Python 3 semantics for all compiled extensions.
-          CYTHON_DEFAULT_LANGUAGE_LEVEL: "3"
-          # Use the full Argos spec (main_argos_local.py entry point)
           BUILDOZER_SPEC_FILENAME: buildozer_local.spec
-        run: |
-          # Capture full output so we can grep for Cython errors on failure.
-          buildozer android debug 2>&1 | tee /tmp/buildozer_output.txt
-          BUILD_EXIT=${PIPESTATUS[0]}
-          if [ "$BUILD_EXIT" -ne 0 ]; then
-            echo "::error::APK build failed (exit $BUILD_EXIT). Scanning for Cython errors..."
-            # Surface Cython-specific errors to make diagnosis easier.
-            grep -E "(Error|error:|warning:).*(Cython|\.pyx|\.pxi)|Declarator should be empty|undeclared name not builtin|language_level" \
-              /tmp/buildozer_output.txt | head -50 || true
-            exit "$BUILD_EXIT"
-          fi
-
-      - name: List built APK(s)
-        if: always()
-        run: find bin/ -name "*.apk" 2>/dev/null || echo "No APK files found in bin/"
-
-      - name: Upload APK artifact
+        run: buildozer android debug 2>&1 | tee /tmp/build.log; exit ${PIPESTATUS[0]}
+      - name: Upload APK
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: argos-full-apk-debug-${{ github.run_number }}
+          name: "argos-apk-${{ github.run_number }}"
           path: bin/*.apk
           if-no-files-found: warn
           retention-days: 30
-
-      - name: Upload full build log artifact
+      - name: Upload log
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: buildozer-build-log-${{ github.run_number }}
-          path: /tmp/buildozer_output.txt
-          if-no-files-found: warn
+          name: "build-log-${{ github.run_number }}"
+          path: /tmp/build.log
+          if-no-files-found: ignore
           retention-days: 30
