@@ -84,6 +84,22 @@ jobs:
           done
           echo "Done"
 
+      - name: Patch python-for-android pip --user calls
+        run: |
+          # Патчим все места где p4a использует pip --user
+          PY=$(which python3)
+          SITE=$(python3 -c "import site; print(site.getsitepackages()[0])")
+          find "$SITE" -path "*/pythonforandroid*" -name "*.py" 2>/dev/null | while read f; do
+            if grep -q "user" "$f"; then
+              sed -i                 's/\["--user"\]//g; s/, "--user"//g; s/"--user", //g; s/install_user/install/g'                 "$f" 2>/dev/null || true
+            fi
+          done
+          # Также патчим в venv
+          find venv -name "*.py" 2>/dev/null | xargs grep -rl '"--user"' 2>/dev/null | while read f; do
+            sed -i 's/"--user", //g; s/, "--user"//g; s/"--user"//g' "$f" || true
+          done
+          echo "p4a patch done"
+
       - name: Build APK
         timeout-minutes: 45
         env:
