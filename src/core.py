@@ -276,13 +276,13 @@ class ArgosCore:
         try:
             from src.memory import ArgosMemory
             self.memory = ArgosMemory()
-        try:
-            self.input_ctrl = _get_input_ctrl() if _get_input_ctrl else None
-        except Exception:
-            self.input_ctrl = None
-        try:
-            self.thought_book = ArgosThoughtBook(core=self) if ArgosThoughtBook else None
-        except Exception:
+            try:
+                self.input_ctrl = _get_input_ctrl() if _get_input_ctrl else None
+            except Exception:
+                self.input_ctrl = None
+            try:
+                self.thought_book = ArgosThoughtBook(core=self) if ArgosThoughtBook else None
+            except Exception:
             self.thought_book = None
             self.context.memory_ref = self.memory
             log.info("Память: OK")
