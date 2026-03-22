@@ -255,10 +255,7 @@ def create_app(core=None):
     @app.get("/api/metrics")
     async def metrics():
         try:
-            try:
-    import psutil
-except Exception:
-    from src import psutil_android as psutil
+            import psutil
             cpu  = 0.0
             ram  = 0.0
             disk = psutil.disk_usage("/") if hasattr(psutil, "disk_usage") else type("D",(),({"percent":0,"free":0,"total":0,"used":0}))().percent

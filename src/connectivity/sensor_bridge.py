@@ -6,10 +6,7 @@ import platform, socket, time
 from collections import deque
 from typing import Any, Dict
 
-try:
-    import psutil
-except Exception:
-    from src import psutil_android as psutil
+import psutil
 
 from src.argos_logger import get_logger
 log = get_logger("argos.sensor")

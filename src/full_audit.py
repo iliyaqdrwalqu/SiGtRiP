@@ -82,10 +82,7 @@ def check_drivers() -> None:
 
     # Память
     try:
-        try:
-    import psutil
-except Exception:
-    from src import psutil_android as psutil
+        import psutil
         mem = psutil.virtual_memory()
         check("RAM psutil", True, f"{mem.total // 1024**2} МБ")
         bat = psutil.sensors_battery()
@@ -153,10 +150,7 @@ except Exception:
     # USB (через psutil process list)
     usb_note = "psutil доступен"
     try:
-        try:
-    import psutil
-except Exception:
-    from src import psutil_android as psutil
+        import psutil
         check("USB (psutil)", True, usb_note)
     except ImportError:
         check("USB (psutil)", False, "не доступен")

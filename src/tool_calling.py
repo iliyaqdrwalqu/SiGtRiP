@@ -12,10 +12,7 @@ import logging
 import os
 from typing import Any, Callable
 
-try:
-    import psutil
-except Exception:
-    from src import psutil_android as psutil
+import psutil
 import requests
 
 MAX_PREVIOUS_OUTPUTS = 5

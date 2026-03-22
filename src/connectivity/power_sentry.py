@@ -13,10 +13,7 @@ from src.argos_logger import get_logger
 log = get_logger("argos.power")
 
 try:
-    try:
     import psutil
-except Exception:
-    from src import psutil_android as psutil
     PSUTIL_OK = True
 except ImportError:
     psutil = None; PSUTIL_OK = False

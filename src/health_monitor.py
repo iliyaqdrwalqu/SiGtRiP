@@ -145,10 +145,7 @@ class HealthMonitor:
 
         # psutil — опционально
         try:
-            try:
-    import psutil
-except Exception:
-    from src import psutil_android as psutil
+            import psutil
             cpu_pct  = 0.0
             ram      = psutil.virtual_memory()
             ram_pct  = ram.percent

@@ -274,10 +274,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def _status_json(self) -> bytes:
-        try:
-    import psutil
-except Exception:
-    from src import psutil_android as psutil, json
+        import psutil, json
         uptime_s = int(time.time() - self.start_t)
         h, m = divmod(uptime_s // 60, 60)
         uptime = f"{h}ч {m}мин"

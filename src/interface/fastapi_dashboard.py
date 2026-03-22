@@ -101,10 +101,7 @@ class FastAPIDashboard:
         async def status():
             info: dict[str, Any] = {"version": self.VERSION}
             try:
-                try:
-    import psutil
-except Exception:
-    from src import psutil_android as psutil
+                import psutil
                 info["cpu_pct"] = 0.0
                 mem = psutil.virtual_memory()
                 info["ram_pct"] = mem.percent

@@ -1,7 +1,4 @@
-try:
-    import psutil
-except Exception:
-    from src import psutil_android as psutil
+import psutil
 import platform
 import os
 import shutil

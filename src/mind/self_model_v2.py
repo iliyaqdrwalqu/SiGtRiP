@@ -315,10 +315,7 @@ class SelfModelV2:
         def _update():
             while True:
                 try:
-                    try:
-    import psutil
-except Exception:
-    from src import psutil_android as psutil
+                    import psutil
                     cpu = 0.0
                     ram = 0.0
                     self.emotion.update(cpu, ram, self._session_errors)

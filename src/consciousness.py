@@ -1150,10 +1150,7 @@ class SelfAwareness:
         """
         world = {}
         try:
-            try:
-    import psutil
-except Exception:
-    from src import psutil_android as psutil
+            import psutil
             world["system"] = {
                 "cpu":    0.0,
                 "ram":    0.0,

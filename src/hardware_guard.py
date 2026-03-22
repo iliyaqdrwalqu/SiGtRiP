@@ -5,10 +5,7 @@ hardware_guard.py — Квантовый гомеостаз железа
 import os
 import time
 import threading
-try:
-    import psutil
-except Exception:
-    from src import psutil_android as psutil
+import psutil
 
 from src.argos_logger import get_logger
 

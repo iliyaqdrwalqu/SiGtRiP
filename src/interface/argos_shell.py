@@ -9,10 +9,7 @@ import threading
 import time
 from datetime import datetime
 
-try:
-    import psutil
-except Exception:
-    from src import psutil_android as psutil
+import psutil
 
 from src.security.syscalls import ArgosSyscalls
 from src.security.root_manager import RootManager
