@@ -252,6 +252,19 @@ jobs:
           find / -path "*/buildozer/*.py" 2>/dev/null | xargs grep -rl '--user' 2>/dev/null | while read f; do sed -i "s|['"]--user['"]s*,?||g" "$f" 2>/dev/null || true; done
 
       - name: Build Full ARGOS APK (debug)
+        run: |
+          find / -path "*/buildozer/*.py" 2>/dev/null | xargs grep -rl '"--user"' 2>/dev/null | while read f; do
+            sed -i 's/"--user", //g;s/, "--user"//g;s/"--user"//g' "$f" || true
+          done
+          find / -path "*/python_for_android*" -name "*.py" 2>/dev/null | xargs grep -rl "'--user'" 2>/dev/null | while read f; do
+            sed -i "s/'--user', //g;s/, '--user'//g;s/'--user'//g" "$f" || true
+          done
+
+      - name: Patch buildozer --user
+        run: |
+          find / -path "*/buildozer/*.py" 2>/dev/null | xargs grep -rl '--user' 2>/dev/null | while read f; do sed -i "s|['"]--user['"]s*,?||g" "$f" 2>/dev/null || true; done
+
+      - name: Build Full ARGOS APK (debug)
         timeout-minutes: 45
         env:
           BUILDOZER_WARN_ON_ROOT: "0"
