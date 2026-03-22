@@ -1370,3 +1370,51 @@ consciousness-module tests, then publishes a Markdown report to a GitHub Gist.
 | **(B)** `python health_check.py` | Checks core ARGOS files, modules, and AI engines |
 | **(C)** `pytest tests/test_consciousness_module.py -v` | Runs consciousness-module tests (falls back to `pytest tests -q` if the file is missing) |
 | Publish | Updates `argos_report.md` in Gist `8e9cf57e043c7a6111f277828f363b01` via GitHub REST API |
+
+---
+
+## 🤖 Три модели Ollama
+
+| Модель | Тип | Назначение |
+|--------|-----|------------|
+| `tinyllama` | Локальная быстрая | Простые команды |
+| `llama3.2:3b` | Локальная умная | Диалоги, анализ |
+| `gpt-oss:120b-cloud` | Облако Ollama | Сложные задачи |
+
+### Установка моделей
+```bash
+ollama pull tinyllama
+ollama pull llama3.2:3b
+ollama pull gpt-oss:120b-cloud
+```
+
+### Пример .env
+```env
+# Ollama три модели
+OLLAMA_FAST_MODEL=tinyllama
+OLLAMA_MODEL=llama3.2:3b
+OLLAMA_CLOUD_MODEL=gpt-oss:120b-cloud
+OLLAMA_HOST=http://localhost:11434
+
+# AI провайдеры (бесплатные)
+GEMINI_API_KEY=       # https://aistudio.google.com/app/apikey
+GROQ_API_KEY=         # https://console.groq.com/keys
+DEEPSEEK_API_KEY=     # https://platform.deepseek.com/api_keys
+XAI_API_KEY=          # https://console.x.ai/
+GIGACHAT_ACCESS_TOKEN= # https://developers.sber.ru/studio
+YANDEX_IAM_TOKEN=     # https://console.yandex.cloud/
+WATSONX_API_KEY=      # https://cloud.ibm.com/watsonx
+
+# Telegram
+TELEGRAM_BOT_TOKEN=   # @BotFather
+USER_ID=              # @userinfobot
+```
+
+### Команды
+```
+три модели статус
+три модели авто <запрос>
+три модели быстро <запрос>
+три модели умно <запрос>
+три модели облако <запрос>
+```
