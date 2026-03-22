@@ -760,6 +760,7 @@ class ArgosThoughtBook:
 
 import os as _os
 import re as _re
+from pathlib import Path
 
 
 def _read_txt(path: str) -> str:
