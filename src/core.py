@@ -470,6 +470,7 @@ class ArgosCore:
             log.warning("OTG Manager: %s", e)
 
     def _init_grist(self):
+        return  # DISABLED - blocks startup
         try:
             from src.knowledge.grist_storage import GristStorage
             self.grist = GristStorage()
