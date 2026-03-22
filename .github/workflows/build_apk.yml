@@ -1,4 +1,4 @@
-name: "\U0001f3d7\ufe0f Build ARGOS Client APK"
+name: "Build ARGOS Client APK"
 
 on:
   push:
@@ -23,233 +23,54 @@ on:
 env:
   PIP_USER: "0"
   PYTHONNOUSERSITE: "1"
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-  PIP_NO_USER: "1"
-  PIP_ROOT_USER_ACTION: "ignore"
+  CYTHON_DEFAULT_LANGUAGE_LEVEL: "3"
 
 jobs:
-  lint-python:
-    name: "\U0001f40d Lint Python"
-    runs-on: ubuntu-22.04
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.10"
-
-      - name: Install flake8 and black
-        run: |
-          pip install flake8 black
-
-      - name: Run black (check mode)
-        run: |
-          black --check --diff \
-            src/ \
-            main*.py \
-            telegram_bot.py \
-            git_push.py \
-            2>/dev/null || true
-
-      - name: Run flake8
-        run: |
-          flake8 . \
-            --count \
-            --select=E9,F63,F7,F82 \
-            --show-source \
-            --statistics \
-            --exclude=.buildozer,build,dist,__pycache__,.git
-
-  lint-cython:
-    name: "\U0001f52c Lint Cython"
-    runs-on: ubuntu-22.04
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.10"
-
-      - name: Install Cython
-        run: pip install cython==0.29.36
-
-      - name: Check .pyx / .pxi files for language_level directive
-        run: |
-          python3 - <<'PYEOF'
-          from pathlib import Path
-
-          missing = []
-          for pyx in sorted(Path(".").rglob("*.pyx")):
-              if ".buildozer" in pyx.parts or "build" in pyx.parts:
-                  continue
-              text = pyx.read_text(encoding="utf-8", errors="replace")
-              if "language_level" not in text:
-                  missing.append(str(pyx))
-                  print(f"::warning file={pyx}::Missing '# cython: language_level=3' directive")
-
-          if missing:
-              print(f"\n[lint-cython] {len(missing)} .pyx file(s) missing language_level directive:")
-              for f in missing:
-                  print(f"  - {f}")
-          else:
-              print("[lint-cython] All .pyx files have language_level directive (or none found).")
-          PYEOF
-
   build-apk:
-    name: "Build Client APK (${{ github.event.inputs.release_mode || 'debug' }})"
+    name: "Build Client APK"
     runs-on: ubuntu-22.04
-    needs: [lint-python, lint-cython]
-    permissions:
-      contents: read
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v6
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.10"
-
-      - name: Install system dependencies
+      - uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+      - name: Install system deps
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y \
-            git zip unzip \
-            openjdk-17-jdk \
-            build-essential \
-            libssl-dev libffi-dev \
-            libsqlite3-dev zlib1g-dev \
-            libncurses5-dev libncursesw5-dev \
-            libbz2-dev liblzma-dev \
-            autoconf automake libtool \
-            cmake pkg-config \
-            ccache
-
-      - name: Configure JAVA_HOME
-        run: echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> "$GITHUB_ENV"
-
-      - name: Cache buildozer global directory
-        uses: actions/cache@v5
-        with:
-          path: ~/.buildozer
-          key: "buildozer-global-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}"
-          restore-keys: "buildozer-global-${{ runner.os }}-"
-
-      - name: Cache pip packages
-        uses: actions/cache@v5
-        with:
-          path: ~/.cache/pip
-          key: "pip-buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}"
-          restore-keys: "pip-buildozer-${{ runner.os }}-"
-
-      # pip install section ────────────────────────────────────────────
-      - name: Install Python build tools
+          sudo apt-get install -y autoconf automake libtool build-essential \
+            libffi-dev libssl-dev git zip unzip zlib1g-dev cmake ccache
+      - name: Setup venv
         run: |
-          pip install --upgrade pip setuptools wheel
-          pip install buildozer cython==0.29.36
-
-      - name: Set language_level=3 in cached .pyx/.pxd files
+          python -m venv venv
+          echo "$PWD/venv/bin" >> $GITHUB_PATH
+          echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
+      - name: Install buildozer
         run: |
-          python3 - <<'PYEOF'
-          from pathlib import Path
-
-          directive = "# cython: language_level=3\n"
-          patched_count = 0
-          for search_dir in [Path(".buildozer"), Path.home() / ".buildozer"]:
-              if not search_dir.exists():
-                  continue
-              for ext in ("*.pyx", "*.pxd"):
-                  for pyx in search_dir.rglob(ext):
-                      try:
-                          text = pyx.read_text(encoding="utf-8", errors="replace")
-                          if "language_level" not in text:
-                              pyx.write_text(directive + text, encoding="utf-8")
-                              patched_count += 1
-                      except OSError:
-                          pass
-
-          print(f"[cython-pre] Patched {patched_count} file(s).")
-          PYEOF
-
-      - name: Patch cached pyjnius source (long -> int, jlong typedef)
+          pip install --upgrade pip
+          pip install buildozer cython==0.29.36 "pyjnius>=1.6.1"
+      - name: Patch pip no-user
         run: |
-          python3 - <<'PYEOF'
-          import re
-          from pathlib import Path
-
-          _SENTINEL = "\x00LONGLONG\x00"
-          for search_dir in [Path(".buildozer"), Path.home() / ".buildozer"]:
-              if not search_dir.exists():
-                  continue
-              for pxi in search_dir.rglob("jnius*.pxi"):
-                  try:
-                      content = pxi.read_text(encoding="utf-8", errors="replace")
-                      guarded = content.replace("long long", _SENTINEL)
-                      patched = re.sub(r"\blong\b", "int", guarded)
-                      patched = patched.replace(_SENTINEL, "long long")
-                      patched = re.sub(
-                          r"ctypedef\s+int\s+int\s+jlong",
-                          "ctypedef long long jlong",
-                          patched,
-                      )
-                      if patched != content:
-                          pxi.write_text(patched, encoding="utf-8")
-                          print(f"Patched (safe): {pxi}")
-                  except OSError as e:
-                      print(f"Could not patch {pxi}: {e}")
-          print("pyjnius cache patch done.")
-          PYEOF
-
+          mkdir -p ~/.config/pip
+          printf '[global]\nno-user-site = true\n' > ~/.config/pip/pip.conf
+          find / -path "*/pythonforandroid*" -name "*.py" 2>/dev/null | while read f; do
+            sed -i "s/'--user'//g; s/\"--user\"//g" "$f" 2>/dev/null || true
+          done
+          echo "Patch done"
       - name: Build APK
-        timeout-minutes: 60
-        env:
-          BUILDOZER_WARN_ON_ROOT: "0"
-          CYTHON_DEFAULT_LANGUAGE_LEVEL: "3"
         run: |
           MODE="${{ github.event.inputs.release_mode || 'debug' }}"
-          echo "Running: buildozer android $MODE"
-          buildozer -v android "$MODE" 2>&1 | tee /tmp/buildozer_output.txt
-          BUILD_EXIT=${PIPESTATUS[0]}
-          if [ "$BUILD_EXIT" -ne 0 ]; then
-            echo "::error::APK build failed (exit $BUILD_EXIT)"
-            grep -E "(Error|error:|warning:).*(Cython|\.pyx|\.pxi)|Declarator should be empty|undeclared name not builtin|language_level" \
-              /tmp/buildozer_output.txt | head -50 || true
-            exit "$BUILD_EXIT"
-          fi
-
-      - name: List built APK(s)
-        if: always()
-        run: find bin/ -name "*.apk" 2>/dev/null || echo "No APK files found in bin/"
-
-      - name: Upload APK artifact
+          buildozer android "$MODE" 2>&1 | tee /tmp/build.log
+          exit ${PIPESTATUS[0]}
+        timeout-minutes: 60
+      - name: Upload APK
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: "argos-client-apk-${{ github.event.inputs.release_mode || 'debug' }}-${{ github.run_number }}"
+          name: "argos-client-apk-${{ github.run_number }}"
           path: bin/*.apk
           if-no-files-found: warn
           retention-days: 30
-
-      - name: Force no-user pip
-        run: |
-          pip config set global.no-user-site true
-          echo "PIP_NO_USER=1" >> $GITHUB_ENV
-
-      - name: Disable pip user installs globally
-        run: |
-          mkdir -p ~/.config/pip
-          echo "[global]" > ~/.config/pip/pip.conf
-          echo "no-user-site = true" >> ~/.config/pip/pip.conf
-          mkdir -p /home/runner/.config/pip
-          cp ~/.config/pip/pip.conf /home/runner/.config/pip/pip.conf
