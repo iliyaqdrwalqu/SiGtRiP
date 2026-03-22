@@ -1,254 +1,191 @@
 """
-src/interface/fastapi_dashboard.py
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-FastAPI веб-панель + Remote Control API Аргоса.
+fastapi_dashboard.py — современный dashboard Аргоса на FastAPI.
+Если FastAPI/uvicorn недоступны, core автоматически использует legacy dashboard.
 
-Эндпоинты:
-  GET  /api/health           — статус (без авторизации)
-  GET  /api/status           — CPU/RAM/диск/состояние
-  POST /api/command          — выполнить команду (Bearer token)
-  GET  /api/events?limit=N   — последние события EventBus
-  POST /webhook/command      — IPC webhook (Bearer token)
-  GET  /                     — HTML веб-панель
+Дополнительные REST-эндпоинты для удалённого управления (Android APK):
+  GET  /api/health          → версия, uptime, статус
+  POST /api/command         → выполнить команду (JSON: {"cmd": "..."})
+  GET  /api/events?limit=N  → последние события из EventBus
 
-pip install fastapi uvicorn[standard]
+Аутентификация: Bearer-токен из переменной окружения ARGOS_REMOTE_TOKEN.
+CORS включён (по умолчанию allow all) для доступа с мобильного клиента.
 """
-from __future__ import annotations
-
-import asyncio
+import json
 import os
-import time
 import threading
-import datetime
-from typing import Any
+import time
+from collections import deque
 
-try:
-    from fastapi import FastAPI, Request, HTTPException, Depends  # type: ignore
-    from fastapi.responses import HTMLResponse, JSONResponse  # type: ignore
-    from fastapi.middleware.cors import CORSMiddleware  # type: ignore
-    import uvicorn  # type: ignore
-    _FASTAPI_OK = True
-except ImportError:
-    _FASTAPI_OK = False
+from src.argos_logger import get_logger
 
-_START_TIME = time.time()
+log = get_logger("argos.fastapi_dashboard")
+
+ARGOS_VERSION = "2.1"
 
 
 class FastAPIDashboard:
-    """FastAPI веб-панель + REST API + IPC webhook Аргоса."""
-
-    VERSION = "2.1.3"
-
-    def __init__(
-        self,
-        core=None,
-        admin=None,
-        flasher=None,
-        port: int = 8080,
-        host: str = "0.0.0.0",
-    ):
+    def __init__(self, core, admin, flasher, port: int = 8080):
         self.core = core
         self.admin = admin
         self.flasher = flasher
         self.port = port
-        self.host = host
-        self.token = os.getenv("ARGOS_REMOTE_TOKEN", "")
-        self._app: Any = None
-        self._thread: threading.Thread | None = None
+        self._start_t = time.time()
+        self._thread = None
+        self._server = None
+        self._history = deque(maxlen=120)
 
-    # ── Auth ─────────────────────────────────────────────────────────────────
+    def start(self) -> str:
+        try:
+            from fastapi import FastAPI, Request, status
+            from fastapi.responses import HTMLResponse, JSONResponse
+            from fastapi.middleware.cors import CORSMiddleware
+            import psutil
+            import uvicorn
+        except Exception as e:
+            return f"❌ FastAPI Dashboard: {e}"
 
-    def _check_auth(self, request: Request):
-        if not self.token:
-            return True
-        auth = request.headers.get("Authorization", "")
-        if not auth.startswith("Bearer ") or auth[7:] != self.token:
-            raise HTTPException(status_code=401, detail="Unauthorized")
-        return True
+        # ── Токен аутентификации ──────────────────────────────────────
+        _remote_token: str = os.environ.get("ARGOS_REMOTE_TOKEN", "")
 
-    # ── App factory ───────────────────────────────────────────────────────────
+        def _check_auth(request: Request):
+            """Возвращает True если токен не задан или совпадает с Bearer-токеном."""
+            if not _remote_token:
+                return True
+            auth_header = request.headers.get("Authorization", "")
+            if not auth_header.startswith("Bearer "):
+                return False
+            return auth_header[len("Bearer "):] == _remote_token
 
-    def _build_app(self) -> Any:
-        if not _FASTAPI_OK:
-            raise ImportError("FastAPI не установлен: pip install fastapi uvicorn")
+        app = FastAPI(title="Argos Dashboard", docs_url="/docs")
 
-        app = FastAPI(title="Argos Universal OS", version=self.VERSION)
-
+        # ── CORS ──────────────────────────────────────────────────────
+        cors_origins = os.environ.get("ARGOS_CORS_ORIGINS", "*").split(",")
         app.add_middleware(
             CORSMiddleware,
-            allow_origins=["*"],
+            allow_origins=cors_origins,
+            allow_credentials=True,
             allow_methods=["*"],
             allow_headers=["*"],
         )
 
-        dashboard = self  # ссылка для замыканий
-
-        # ── /api/health ──────────────────────────────────────────────────────
-
-        @app.get("/api/health")
-        async def health():
-            return {
-                "ok": True,
-                "status": "ok",
-                "version": self.VERSION,
-                "uptime_seconds": round(time.time() - _START_TIME),
-                "node": os.getenv("HOSTNAME", "argos"),
-            }
-
-        # ── /api/status ───────────────────────────────────────────────────────
-
-        @app.get("/api/status")
-        async def status():
-            info: dict[str, Any] = {"version": self.VERSION}
-            try:
-                import psutil
-                info["cpu_pct"] = 0.0
-                mem = psutil.virtual_memory()
-                info["ram_pct"] = mem.percent
-                info["ram_mb"] = mem.total // 1024 // 1024
-                disk = psutil.disk_usage('/')
-                info["disk_pct"] = disk.percent
-            except Exception:
-                pass
-            if dashboard.core:
-                try:
-                    q = dashboard.core.quantum.generate_state()
-                    info["quantum_state"] = q.get("name", "?")
-                    info["ai_mode"] = dashboard.core.ai_mode_label()
-                except Exception:
-                    pass
-            return info
-
-        # ── /api/command ──────────────────────────────────────────────────────
-
-        @app.post("/api/command")
-        async def command(request: Request):
-            dashboard._check_auth(request)
-            data = await request.json()
-            cmd = data.get("cmd", "").strip()
-            if not cmd:
-                raise HTTPException(status_code=400, detail="cmd is required")
-            if not dashboard.core:
-                return JSONResponse({"ok": False, "error": "Ядро не инициализировано"})
-            try:
-                result = dashboard.core.process(cmd)
-                answer = result.get("answer", "") if isinstance(result, dict) else str(result)
-                return {"ok": True, "answer": answer, "cmd": cmd}
-            except Exception as exc:
-                return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)
-
-        # ── /api/events ───────────────────────────────────────────────────────
-
-        @app.get("/api/events")
-        async def events(request: Request, limit: int = 20):
-            dashboard._check_auth(request)
-            evt_list = []
-            if dashboard.core:
-                try:
-                    from src.event_bus import get_bus
-                    bus = get_bus()
-                    for ev in list(bus._history)[-limit:]:
-                        evt_list.append({
-                            "topic": getattr(ev, "topic", str(ev)),
-                            "data": getattr(ev, "data", {}),
-                            "ts": getattr(ev, "ts", 0),
-                        })
-                except Exception:
-                    pass
-            return {"ok": True, "events": evt_list, "count": len(evt_list)}
-
-        # ── /webhook/command (IPC) ────────────────────────────────────────────
-
-        @app.post("/webhook/command")
-        async def webhook_command(request: Request):
-            data = await request.json()
-            if dashboard.token and data.get("token") != dashboard.token:
-                raise HTTPException(status_code=401, detail="Unauthorized")
-            cmd = data.get("cmd", "").strip()
-            if not cmd:
-                raise HTTPException(status_code=400, detail="cmd is required")
-            if not dashboard.core:
-                return {"ok": False, "error": "Ядро не инициализировано"}
-            result = dashboard.core.process(cmd)
-            answer = result.get("answer", "") if isinstance(result, dict) else str(result)
-            return {"ok": True, "reply": answer}
-
-        # ── / HTML панель ─────────────────────────────────────────────────────
+        html = """<!doctype html><html lang='ru'><head><meta charset='utf-8'/><meta name='viewport' content='width=device-width, initial-scale=1'/><title>Argos FastAPI Dashboard</title><script src='https://cdn.jsdelivr.net/npm/chart.js'></script><style>body{font-family:Inter,Arial,sans-serif;background:#0b1020;color:#dce7ff;margin:0;padding:20px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.card{background:#131b35;border:1px solid #243055;border-radius:12px;padding:14px}button{padding:8px 12px;border-radius:8px;border:1px solid #3d4f88;background:#1b2957;color:#dce7ff;cursor:pointer}input{padding:8px;border-radius:8px;border:1px solid #3d4f88;background:#0f1732;color:#dce7ff;width:100%}pre{background:#0a1024;padding:10px;border-radius:8px;max-height:260px;overflow:auto}.row{display:flex;gap:8px}.small{opacity:.8;font-size:.9em}</style></head><body><h2>👁️ Argos FastAPI Dashboard</h2><div class='small'>Метрики, логи, команды</div><div class='grid'><div class='card'><canvas id='chart'></canvas></div><div class='card'><div id='stats'>Loading...</div><div class='row' style='margin-top:10px'><button onclick='toggleVoice()' id='voiceBtn'>Toggle Voice</button><button onclick='quick(`iot статус`)'>IoT</button><button onclick='quick(`шаблоны шлюзов`)'>Gateways</button></div></div><div class='card'><div class='row'><input id='cmd' placeholder='Команда...' onkeydown='if(event.key===`Enter`)sendCmd()'/><button onclick='sendCmd()'>Send</button></div><pre id='resp'></pre></div><div class='card'><pre id='log'></pre></div></div><script>const ctx=document.getElementById('chart');const chart=new Chart(ctx,{type:'line',data:{labels:[],datasets:[{label:'CPU %',data:[],borderColor:'#40c4ff'},{label:'RAM %',data:[],borderColor:'#7CFF6B'}]}});let voiceOn=false;async function tick(){const r=await fetch('/api/status');const d=await r.json();voiceOn=!!d.voice_on;document.getElementById('voiceBtn').innerText=voiceOn?'🔇 Voice OFF':'🔊 Voice ON';document.getElementById('stats').innerHTML=`<b>${d.state}</b><br/>CPU: ${d.cpu.toFixed(1)}% · RAM: ${d.ram.toFixed(1)}% · Disk: ${d.disk.toFixed(1)}%<br/>Uptime: ${d.uptime} · P2P: ${d.p2p_nodes}`;chart.data.labels.push(new Date().toLocaleTimeString());chart.data.datasets[0].data.push(d.cpu);chart.data.datasets[1].data.push(d.ram);if(chart.data.labels.length>30){chart.data.labels.shift();chart.data.datasets[0].data.shift();chart.data.datasets[1].data.shift()}chart.update();const lg=await fetch('/api/log');const j=await lg.json();document.getElementById('log').textContent=j.lines||'';}async function sendCmd(){const v=document.getElementById('cmd').value.trim();if(!v)return;document.getElementById('cmd').value='';const r=await fetch('/api/cmd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cmd:v})});const d=await r.json();document.getElementById('resp').textContent=d.answer||d.error||'-';setTimeout(tick,200);}function quick(cmd){document.getElementById('cmd').value=cmd;sendCmd();}function toggleVoice(){quick(voiceOn?'голос выкл':'голос вкл')}setInterval(tick,2500);tick();</script></body></html>"""
 
         @app.get("/", response_class=HTMLResponse)
-        async def root():
-            return HTMLResponse(_html_panel(self.VERSION, self.port))
+        async def index():
+            return HTMLResponse(content=html)
 
-        return app
+        @app.get("/api/status")
+        async def api_status():
+            uptime_s = int(time.time() - self._start_t)
+            h, m = divmod(uptime_s // 60, 60)
+            uptime = f"{h}ч {m}мин"
+            cpu = psutil.cpu_percent(interval=0.1)
+            ram = psutil.virtual_memory().percent
+            disk = psutil.disk_usage('/').percent
+            state = self.core.quantum.generate_state()["name"] if self.core else "Offline"
+            voice = bool(self.core.voice_on) if self.core else False
+            p2p_nodes = len(self.core.p2p.registry.all()) if self.core and self.core.p2p else 0
+            self._history.append({"ts": time.time(), "cpu": cpu, "ram": ram, "disk": disk})
+            return JSONResponse({
+                "state": state,
+                "voice_on": voice,
+                "uptime": uptime,
+                "cpu": cpu,
+                "ram": ram,
+                "disk": disk,
+                "p2p_nodes": p2p_nodes,
+                "history": list(self._history),
+            })
 
-    # ── Start ─────────────────────────────────────────────────────────────────
+        @app.get("/api/log")
+        async def logs():
+            lines = ""
+            try:
+                log_path = "logs/argos.log"
+                if os.path.exists(log_path):
+                    with open(log_path, encoding="utf-8") as f:
+                        lines = "".join(f.readlines()[-120:])
+            except Exception:
+                pass
+            return JSONResponse({"lines": lines})
 
-    def start(self) -> str:
-        if not _FASTAPI_OK:
-            return "❌ FastAPI не установлен: pip install fastapi uvicorn"
-        self._app = self._build_app()
+        @app.post("/api/cmd")
+        async def cmd(payload: dict):
+            command = (payload or {}).get("cmd", "")
+            if not command:
+                return JSONResponse({"error": "Пустая команда"}, status_code=400)
+            try:
+                result = await self.core.process_logic_async(command, self.admin, self.flasher)
+                return JSONResponse(result)
+            except Exception as e:
+                return JSONResponse({"answer": f"Ошибка: {e}"})
+
+        # ── НОВЫЕ ЭНДПОИНТЫ ДЛЯ УДАЛЁННОГО УПРАВЛЕНИЯ ────────────────
+
+        @app.get("/api/health")
+        async def health(request: Request):
+            """Проверка доступности API. Не требует авторизации."""
+            uptime_s = int(time.time() - self._start_t)
+            return JSONResponse({
+                "status": "ok",
+                "version": ARGOS_VERSION,
+                "uptime_seconds": uptime_s,
+            })
+
+        @app.post("/api/command")
+        async def remote_command(request: Request):
+            """Выполнить команду ARGOS. Требует Bearer-токен."""
+            if not _check_auth(request):
+                return JSONResponse({"error": "Unauthorized"}, status_code=status.HTTP_401_UNAUTHORIZED)
+            try:
+                payload = await request.json()
+            except Exception:
+                payload = {}
+            command = (payload or {}).get("cmd", "").strip()
+            if not command:
+                return JSONResponse({"error": "Пустая команда"}, status_code=400)
+            try:
+                result = await self.core.process_logic_async(command, self.admin, self.flasher)
+                answer = result.get("answer", "") if isinstance(result, dict) else str(result)
+                return JSONResponse({"answer": answer, "raw": result})
+            except Exception as e:
+                return JSONResponse({"answer": f"Ошибка: {e}", "raw": None})
+
+        @app.get("/api/events")
+        async def remote_events(request: Request, limit: int = 20):
+            """Последние события из EventBus. Требует Bearer-токен."""
+            if not _check_auth(request):
+                return JSONResponse({"error": "Unauthorized"}, status_code=status.HTTP_401_UNAUTHORIZED)
+            try:
+                from src.connectivity.event_bus import bus as event_bus
+                limit = max(1, min(limit, 200))
+                events = event_bus.recent(limit=limit)
+                serialized = []
+                for ev in events:
+                    payload = ev.payload
+                    if not isinstance(payload, (dict, list, str, int, float, bool, type(None))):
+                        payload = str(payload)
+                    serialized.append({
+                        "type": ev.type,
+                        "source": ev.source,
+                        "ts": ev.ts,
+                        "payload": payload,
+                    })
+                return JSONResponse({"events": serialized, "count": len(serialized)})
+            except Exception as e:
+                return JSONResponse({"events": [], "count": 0, "error": str(e)})
+
+        config = uvicorn.Config(app=app, host="0.0.0.0", port=self.port, log_level="warning")
+        self._server = uvicorn.Server(config)
 
         def _run():
-            uvicorn.run(self._app, host=self.host, port=self.port, log_level="warning")
+            self._server.run()
 
-        self._thread = threading.Thread(target=_run, daemon=True, name="ArgosAPI")
+        self._thread = threading.Thread(target=_run, daemon=True)
         self._thread.start()
-        return f"✅ FastAPI Dashboard: http://{self.host}:{self.port}"
+        log.info("FastAPI Dashboard запущен на http://localhost:%d", self.port)
+        return f"🌐 FastAPI панель: http://localhost:{self.port}"
 
-
-def _html_panel(version: str, port: int) -> str:
-    return f"""<!DOCTYPE html>
-<html lang="ru">
-<head>
-  <meta charset="UTF-8">
-  <title>ARGOS v{version}</title>
-  <style>
-    body {{ background:#0a0a0a; color:#00ff88; font-family:monospace; padding:2rem; }}
-    h1 {{ color:#00f2ff; }}
-    .btn {{ background:#003; border:1px solid #00ff88; color:#00ff88;
-            font-family:monospace; padding:0.5rem 1rem; cursor:pointer; margin:0.3rem; }}
-    .btn:hover {{ background:#006; }}
-    #out {{ border:1px solid #00ff88; padding:1rem; min-height:4rem;
-            white-space:pre-wrap; margin-top:1rem; }}
-    input {{ background:#001; border:1px solid #00ff88; color:#00ff88;
-             font-family:monospace; padding:0.4rem; width:60%; }}
-  </style>
-</head>
-<body>
-  <h1>🔱 ARGOS Universal OS v{version}</h1>
-  <div>
-    <input id="cmd" placeholder="Введите команду..." onkeydown="if(event.key==='Enter')send()">
-    <button class="btn" onclick="send()">▶ RUN</button>
-  </div>
-  <div>
-    <button class="btn" onclick="run('статус системы')">📊 Статус</button>
-    <button class="btn" onclick="run('помощь')">❓ Помощь</button>
-    <button class="btn" onclick="run('крипто')">💰 Крипто</button>
-    <button class="btn" onclick="run('git статус')">🔀 Git</button>
-  </div>
-  <div id="out">Готов к работе...</div>
-  <script>
-    const token = '';
-    async function run(cmd) {{
-      document.getElementById('out').textContent = '⏳ ' + cmd + '...';
-      const r = await fetch('/api/command', {{
-        method:'POST',
-        headers: {{'Content-Type':'application/json',
-                   'Authorization':'Bearer '+token}},
-        body: JSON.stringify({{cmd}})
-      }});
-      const d = await r.json();
-      document.getElementById('out').textContent = d.answer || d.error || JSON.stringify(d);
-    }}
-    function send() {{
-      const v = document.getElementById('cmd').value.trim();
-      if(v) {{ run(v); document.getElementById('cmd').value=''; }}
-    }}
-    setInterval(async () => {{
-      const r = await fetch('/api/health');
-      const d = await r.json();
-      document.title = `ARGOS v{version} | up ${{d.uptime_seconds}}s`;
-    }}, 10000);
-  </script>
-</body>
-</html>"""
+    def stop(self):
+        if self._server:
+            self._server.should_exit = True

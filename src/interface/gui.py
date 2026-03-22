@@ -616,7 +616,7 @@ class ArgosGUI(ctk.CTk):
 
     def _copy_colab_url(self):
         url = ("https://colab.research.google.com/github/"
-               "iliyaqdrwalqu/SiGtRiP/blob/main/argos_colab.ipynb")
+               "iliyaqdrwalqu/Argoss/blob/main/argos_colab.ipynb")
         try:
             self.clipboard_clear()
             self.clipboard_append(url)
@@ -839,47 +839,32 @@ class ArgosGUI(ctk.CTk):
         self.mem_box.configure(state="disabled")
 
     def _refresh_system_tab(self):
-        """Обновляет вкладку Система. Метрики собираются в фоновом потоке."""
-        static_lines = [
+        self.sys_box.configure(state="normal")
+        self.sys_box.delete("1.0", "end")
+        lines = [
             f"  Версия ARGOS:  {getattr(self.core, 'VERSION', '?')}",
             f"  Режим ИИ:      {self.core.ai_mode_label()}",
             f"  Квантовое:     {self.core.quantum.generate_state()['name']}",
             f"  Голос:         {'ВКЛ' if self.core.voice_on else 'ВЫКЛ'}",
             "",
         ]
-        # Сразу показываем статичные данные, метрики — placeholder
-        self.sys_box.configure(state="normal")
-        self.sys_box.delete("1.0", "end")
-        self.sys_box.insert("end", "\n".join(static_lines) + "\n  Метрики: загрузка…\n")
+        try:
+            import psutil
+            lines += [
+                f"  CPU:           {psutil.cpu_percent(interval=0.2):.1f}%",
+                f"  RAM:           {psutil.virtual_memory().percent:.1f}%",
+                f"  Disk:          {psutil.disk_usage('/').percent:.1f}%",
+            ]
+            bat = psutil.sensors_battery()
+            if bat:
+                plug = "🔌" if bat.power_plugged else "🔋"
+                lines.append(f"  Батарея:       {plug} {bat.percent:.0f}%")
+        except ImportError:
+            lines.append("  psutil не установлен.")
+        except Exception as e:
+            lines.append(f"  Ошибка метрик: {e}")
+        self.sys_box.insert("end", "\n".join(lines) + "\n")
         self.sys_box.configure(state="disabled")
-
-        def _collect():
-            metric_lines: list[str] = []
-            try:
-                import psutil
-                cpu = 0.0
-                metric_lines += [
-                    f"  CPU:           {cpu:.1f}%",
-                    f"  RAM:           {0.0:.1f}%",
-                    f"  Disk:          {psutil.disk_usage('/').percent:.1f}%",
-                ]
-                bat = psutil.sensors_battery()
-                if bat:
-                    plug = "🔌" if bat.power_plugged else "🔋"
-                    metric_lines.append(f"  Батарея:       {plug} {bat.percent:.0f}%")
-            except ImportError:
-                metric_lines.append("  psutil не установлен.")
-            except Exception as e:
-                metric_lines.append(f"  Ошибка метрик: {e}")
-            self.after(0, lambda: _apply(metric_lines))
-
-        def _apply(metric_lines: list[str]):
-            self.sys_box.configure(state="normal")
-            self.sys_box.delete("1.0", "end")
-            self.sys_box.insert("end", "\n".join(static_lines + metric_lines) + "\n")
-            self.sys_box.configure(state="disabled")
-
-        threading.Thread(target=_collect, daemon=True).start()
 
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     # ИСТОРИЯ КОМАНД (↑ / ↓)
@@ -949,24 +934,11 @@ class ArgosGUI(ctk.CTk):
             text=datetime.now().strftime("%H:%M:%S"))
 
     def _update_metrics(self):
-        """Собирает метрики в фоновом потоке, затем обновляет виджеты в UI-потоке."""
-        def _collect():
-            try:
-                import psutil
-                cpu  = 0.0
-                ram  = 0.0
-                disk = psutil.disk_usage('/').percent
-                self.after(0, lambda: self._apply_metrics(cpu, ram, disk))
-            except Exception:
-                pass
-        threading.Thread(target=_collect, daemon=True).start()
-
-    def _apply_metrics(self, cpu: float, ram: float, disk: float):
-        """Применяет собранные метрики к виджетам (вызывается в UI-потоке)."""
         try:
-            self.bar_cpu.update(cpu)
-            self.bar_ram.update(ram)
-            self.bar_disk.update(disk)
+            import psutil
+            self.bar_cpu.update(psutil.cpu_percent(interval=0.1))
+            self.bar_ram.update(psutil.virtual_memory().percent)
+            self.bar_disk.update(psutil.disk_usage("/").percent)
         except Exception:
             pass
 

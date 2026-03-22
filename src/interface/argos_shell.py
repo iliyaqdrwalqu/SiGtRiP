@@ -170,9 +170,9 @@ class ArgosShell(cmd.Cmd):
 
     def do_status(self, arg):
         """Системный статус: CPU, RAM, диск, сеть, root."""
-        cpu   = 0.0
+        cpu   = psutil.cpu_percent(interval=0.5)
         mem   = psutil.virtual_memory()
-        disk  = psutil.disk_usage('/')
+        disk  = psutil.disk_usage("/")
         boot  = datetime.fromtimestamp(psutil.boot_time()).strftime("%Y-%m-%d %H:%M")
         procs = len(psutil.pids())
 
@@ -429,9 +429,9 @@ class ArgosShell(cmd.Cmd):
         return Panel(grid, style="white on blue")
 
     def _panel_stats(self):
-        cpu  = 0.0
-        mem  = 0.0
-        disk = psutil.disk_usage('/').percent
+        cpu  = psutil.cpu_percent(interval=None)
+        mem  = psutil.virtual_memory().percent
+        disk = psutil.disk_usage("/").percent
         t = Table(box=None, expand=True)
         t.add_column("Метрика")
         t.add_column("Значение", justify="right")
@@ -832,8 +832,8 @@ class ArgosShell(cmd.Cmd):
         table.add_column("Metric")
         table.add_column("Value", justify="right")
         
-        cpu = 0.0
-        mem = 0.0
+        cpu = psutil.cpu_percent()
+        mem = psutil.virtual_memory().percent
         disk = psutil.disk_usage('/').percent
         
         table.add_row("CPU Load", f"[green]{cpu}%[/green]" if cpu < 50 else f"[red]{cpu}%[/red]")

@@ -6,23 +6,26 @@ try:
     from kivy.uix.textinput import TextInput
     from kivy.uix.scrollview import ScrollView
     from kivy.clock import Clock
-    from kivy.core.window import Window
     KIVY_OK = True
 except ImportError:
     KIVY_OK = False
 import threading
 
-try:
-    from src.interface.style import S
-except ImportError:
-    from style import S
-
 if KIVY_OK:
     class QuantumOrb(Label):
         """Визуализация квантового состояния Аргоса."""
+        COLORS = {
+            "Analytic":   "[color=00ffff]",
+            "Protective": "[color=ff3333]",
+            "Creative":   "[color=00ff88]",
+            "Unstable":   "[color=ffff00]",
+            "All-Seeing": "[color=ffffff]",
+            "System":     "[color=ff8800]",
+            "Offline":    "[color=444444]",
+        }
 
         def update_orb(self, state):
-            color = S.orb_color(state)
+            color = self.COLORS.get(state.split(" ")[0], "[color=aaaaaa]")
             self.text   = f"{color}●[/color]"
             self.markup = True
 
@@ -36,29 +39,27 @@ if KIVY_OK:
             self._listening = False
 
         def build(self):
-            Window.clearcolor = S.BG
-            root = BoxLayout(orientation='vertical', padding=S.PAD, spacing=S.SPACING)
+            root = BoxLayout(orientation='vertical', padding=12, spacing=8)
 
             # ── Шапка ─────────────────────────────────────────
             root.add_widget(Label(
                 text="👁️  ARGOS MOBILE NODE",
-                font_size=S.FONT_HEADER, bold=True,
-                color=S.CYAN,
-                size_hint_y=None, height=S.HEADER_H,
+                font_size='20sp', bold=True,
+                size_hint_y=None, height=40,
             ))
 
             # ── Орб + статус ──────────────────────────────────
             top = BoxLayout(size_hint_y=None, height=120, spacing=10)
-            self.orb = QuantumOrb(text=f"{S.orb_color('Analytic')}●[/color]",
+            self.orb = QuantumOrb(text="[color=00ffff]●[/color]",
                                   font_size='90sp', markup=True,
                                   size_hint_x=None, width=110)
             top.add_widget(self.orb)
 
             info = BoxLayout(orientation='vertical')
             self.state_lbl  = Label(text="Состояние: Analytic", halign="left",
-                                    font_size=S.FONT_NORMAL, color=S.GREEN)
+                                    font_size='13sp', color=(0, 1, 0.53, 1))
             self.health_lbl = Label(text="Shield: Active", halign="left",
-                                    font_size=S.FONT_TINY, color=S.CYAN)
+                                    font_size='11sp', color=(0.7, 0.9, 1, 1))
             info.add_widget(self.state_lbl)
             info.add_widget(self.health_lbl)
             top.add_widget(info)
@@ -73,8 +74,8 @@ if KIVY_OK:
                 ("📰 Дайджест", "дайджест"),
             ]
             for label, cmd in quick:
-                btn = Button(text=label, font_size=S.FONT_SMALL,
-                             background_color=S.BTN_QUICK)
+                btn = Button(text=label, font_size='12sp',
+                             background_color=(0.1, 0.2, 0.4, 1))
                 btn.bind(on_press=lambda _, c=cmd: self._send(c))
                 grid.add_widget(btn)
             root.add_widget(grid)
@@ -88,8 +89,8 @@ if KIVY_OK:
                 ("🛠 Прошивка",  "создай прошивку "),
             ]
             for label, cmd in iot_quick:
-                btn = Button(text=label, font_size=S.FONT_SMALL,
-                             background_color=S.BTN_IOT)
+                btn = Button(text=label, font_size='12sp',
+                             background_color=(0.12, 0.24, 0.44, 1))
                 if cmd.endswith(" "):
                     btn.bind(on_press=lambda _, c=cmd: self._prefill(c))
                 else:
@@ -98,8 +99,8 @@ if KIVY_OK:
             root.add_widget(iot_grid)
 
             voice_grid = BoxLayout(size_hint_y=None, height=44, spacing=6)
-            listen_btn = Button(text="🎙 Слушай меня", font_size=S.FONT_NORMAL,
-                                background_color=S.BTN_OK)
+            listen_btn = Button(text="🎙 Слушай меня", font_size='13sp',
+                                background_color=(0.1, 0.4, 0.1, 1))
             listen_btn.bind(on_press=lambda _: self._start_listen())
             voice_grid.add_widget(listen_btn)
             root.add_widget(voice_grid)
@@ -119,19 +120,19 @@ if KIVY_OK:
             inp = BoxLayout(size_hint_y=None, height=48, spacing=6)
             self.entry = TextInput(
                 hint_text="Директива...", multiline=False,
-                background_color=S.CARD,
-                foreground_color=S.TEXT, font_size=S.FONT_NORMAL,
+                background_color=(0.08, 0.12, 0.2, 1),
+                foreground_color=(1, 1, 1, 1), font_size='14sp',
             )
             self.entry.bind(on_text_validate=lambda _: self._send(self.entry.text))
             inp.add_widget(self.entry)
 
             send_btn = Button(text="▶", size_hint_x=None, width=50,
-                              font_size='18sp', background_color=S.BTN_PRIMARY)
+                              font_size='18sp', background_color=(0, 0.4, 1, 1))
             send_btn.bind(on_press=lambda _: self._send(self.entry.text))
             inp.add_widget(send_btn)
 
             mic_btn = Button(text="🎤", size_hint_x=None, width=50,
-                             font_size='16sp', background_color=S.BTN_OK)
+                             font_size='16sp', background_color=(0.1, 0.4, 0.1, 1))
             mic_btn.bind(on_press=lambda _: self._start_listen())
             inp.add_widget(mic_btn)
             root.add_widget(inp)

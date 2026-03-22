@@ -279,8 +279,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
         h, m = divmod(uptime_s // 60, 60)
         uptime = f"{h}ч {m}мин"
 
-        cpu  = 0.0
-        ram  = 0.0
+        cpu  = psutil.cpu_percent(interval=0.3)
+        ram  = psutil.virtual_memory().percent
         disk = psutil.disk_usage('/').percent
 
         # Сеть

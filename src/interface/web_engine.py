@@ -256,9 +256,9 @@ def create_app(core=None):
     async def metrics():
         try:
             import psutil
-            cpu  = 0.0
-            ram  = 0.0
-            disk = psutil.disk_usage('/').percent
+            cpu  = psutil.cpu_percent(interval=0.2)
+            ram  = psutil.virtual_memory().percent
+            disk = psutil.disk_usage("/").percent
             quantum = "Analytic"
             if core and hasattr(core, "quantum"):
                 quantum = getattr(core.quantum, "state", "Analytic")
