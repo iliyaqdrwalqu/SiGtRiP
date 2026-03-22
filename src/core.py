@@ -284,11 +284,9 @@ class ArgosCore:
     def _init_cloud_object_storage(self):
         try:
             from src.connectivity.cloud_object_storage import IBMCloudObjectStorage
-            try:
             self.cloud_object_storage = IBMCloudObjectStorage.from_env()
-        except Exception:
-            self.cloud_object_storage = None
-            log.info(self.cloud_object_storage.status())
+            if self.cloud_object_storage.is_configured():
+                log.info(self.cloud_object_storage.status())
         except Exception as e:
             log.warning("IBM Cloud Object Storage недоступен: %s", e)
 
