@@ -76,29 +76,11 @@ jobs:
         run: pip install cython==0.29.36
 
       - name: Check .pyx / .pxi files for language_level directive
-        # Report any Cython source files that are missing the
-        # '# cython: language_level=3' directive.  Without it Cython defaults
-        # to Python 2 semantics and may produce hard-to-diagnose errors.
         run: |
-          python3 - <<'PYEOF'
-          from pathlib import Path
-
-          missing = []
-          for pyx in sorted(Path(".").rglob("*.pyx")):
-              if ".buildozer" in pyx.parts or "build" in pyx.parts:
-                  continue
-              text = pyx.read_text(encoding="utf-8", errors="replace")
-              if "language_level" not in text:
-                  missing.append(str(pyx))
-                  print(f"::warning file={pyx}::Missing '# cython: language_level=3' directive")
-
-          if missing:
-              print(f"\n[lint-cython] {len(missing)} .pyx file(s) missing language_level directive:")
-              for f in missing:
-                  print(f"  - {f}")
-          else:
-              print("[lint-cython] OK: All .pyx files have language_level directive (or none found).")
-PYEOF
+          find . -name "*.pyx" -not -path "*/.buildozer/*" -not -path "*/build/*" | while read f; do
+            grep -q "language_level" "$f" || echo "::warning file=$f::Missing language_level=3"
+          done
+          echo "[lint-cython] Check complete." 
 
   # ───────────────────────────────────────────────────────────────────────────
   # Sub-agent 3: Build APK
