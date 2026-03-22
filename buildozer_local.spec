@@ -1,22 +1,19 @@
 [app]
 
 # Application metadata
-title = ARGOS Local Node
-package.name = argos_local
+title = ARGOS Universal OS
+package.name = argos_universal
 package.domain = org.iliyaqdrwalqu.argos
-# keep manually in sync with buildozer.spec
-version = 2.1
+version = 2.1.3
 
 # Source
 source.dir = .
-source.main = main_argos_local.py
+source.main = main_kivy.py
 source.include_exts = py,png,jpg,jpeg,kv,atlas,json,txt,md,xml
 source.include_patterns = assets/*,config/*,res/*
-# Исключаем тесты из сборки
-source.exclude_patterns = tests/*,*/tests/*,*_test.py,*_tests.py,test_*.py
 
-# Requirements (Kivy + Android-compatible deps only)
-requirements = python3==3.10.0, kivy==2.3.0, requests, pyjnius==1.6.1, android, paho-mqtt, python-dotenv, plyer, sqlite3, certifi, urllib3, charset-normalizer, idna
+# Requirements
+requirements = python3==3.10.0,kivy==2.3.0,requests,pyjnius==1.6.1,android,paho-mqtt,python-dotenv
 
 # Hook script – patches pyjnius for Python 3 and disables Android-incompatible
 # Python stdlib C extensions (grp, _uuid, _lzma) before the build starts.
@@ -32,7 +29,7 @@ orientation = portrait
 fullscreen = 0
 
 # Android permissions
-android.permissions = INTERNET,BLUETOOTH_ADMIN,NFC,READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE,USB_HOST,ACCESS_NETWORK_STATE,FOREGROUND_SERVICE,REQUEST_INSTALL_PACKAGES,RECORD_AUDIO
+android.permissions = INTERNET,BLUETOOTH_ADMIN,NFC,READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE,USB_HOST,ACCESS_NETWORK_STATE,FOREGROUND_SERVICE,REQUEST_INSTALL_PACKAGES
 
 # Android API / NDK / SDK
 android.api = 33
