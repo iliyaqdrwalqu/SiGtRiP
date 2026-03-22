@@ -1,6 +1,6 @@
 name: evolution
 display_name: "Эволюция"
-version: "2.1.3"
+version: "2.1.0"
 description: "Генерация навыков через ИИ"
 author: "Аргос / Всеволод"
 entry: "skill.py"

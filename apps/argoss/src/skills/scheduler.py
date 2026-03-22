@@ -95,7 +95,7 @@ class ArgosScheduler:
             except Exception as e:
                 log.error("Задача #%s ошибка: %s", task_id, e)
         else:
-            log.warning("Задача #%s: core не инициализирован, команда: %s", task_id, cmd)
+            print(f"[SCHEDULER] Задача: {cmd}")
 
     def add_daily(self, command: str, hour: int, minute: int = 0) -> str:
         task = {

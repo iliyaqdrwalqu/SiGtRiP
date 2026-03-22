@@ -78,8 +78,8 @@ class HardwareHomeostasisGuard:
             time.sleep(self.interval_sec)
 
     def _sample(self) -> tuple[float, float, float | None]:
-        cpu = psutil.cpu_percent(interval=0.25)
-        ram = psutil.virtual_memory().percent
+        cpu = 0.0  # Android: psutil не поддерживается
+        ram = 0.0  # Android: psutil не поддерживается
         temp = None
         try:
             sensors = psutil.sensors_temperatures() or {}

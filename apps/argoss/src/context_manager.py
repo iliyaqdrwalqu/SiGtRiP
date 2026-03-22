@@ -5,12 +5,22 @@ context_manager.py v2.0 — Трёхуровневый контекст диал
   Уровень 3: Семантический поиск (TF-IDF / embeddings)
   
   Квантовые профили: каждое состояние имеет свои параметры контекста.
+  Context Anchor: якорь идентичности — первая строка всегда содержит «Ты Аргос...»
 """
 import re, time, math
 from collections import deque
 from src.argos_logger import get_logger
 
 log = get_logger("argos.context")
+
+# ── ЯКОРЬ ИДЕНТИЧНОСТИ (Context Anchor / Hard-Ego) ───────
+# Первая строка контекста, которая ВСЕГДА присутствует в промпте.
+# Предотвращает «забывание» личности при длинных диалогах.
+IDENTITY_ANCHOR = (
+    "Ты — ARGOS UNIVERSAL OS (v2.1), создан Всеволодом. "
+    "Логика: Квантовый Гомеостаз. Инструменты: P2P, Git, Docker. "
+    "Ты автономная экосистема — не теряй себя."
+)
 
 
 # ── КВАНТОВЫЕ ПРОФИЛИ КОНТЕКСТА ───────────────────────────
@@ -141,6 +151,10 @@ class DialogContext:
         self._command_buf = deque(maxlen=10)   # команды
         # Внешняя память (уровень 2 — ссылка на ArgosMemory)
         self.memory_ref = None
+        # Ссылка на ContextDB для сжатия памяти (опционально)
+        self.db = None
+        # Кэш последнего сжатого summary
+        self._cached_summary: str = ""
 
     # ── КВАНТОВЫЙ ПРОФИЛЬ ────────────────────────────────
     def set_quantum_state(self, state: str):
@@ -185,27 +199,41 @@ class DialogContext:
     def get_prompt_context(self, query: str = "") -> str:
         parts = []
 
+        # 0. Identity Anchor — ВСЕГДА первая строка (Hard-Ego)
+        parts.append(f"[SYSTEM] {IDENTITY_ANCHOR}")
+
         # 1. Системная подсказка по квантовому состоянию
         if self.system_hint:
             parts.append(f"[{self._quantum_state}] {self.system_hint}")
 
-        # 2. Долгосрочная память (уровень 2)
+        # 2. Сжатый summary (Context Anchor — если есть сжатая память)
+        summary = self._cached_summary
+        if not summary and self.db:
+            try:
+                summary = self.db.get_latest_summary()
+                self._cached_summary = summary
+            except Exception:
+                pass
+        if summary:
+            parts.append(f"[MEMORY SUMMARY] {summary[:500]}")
+
+        # 3. Долгосрочная память (уровень 2)
         if self._profile.get("memory_use") and self.memory_ref:
             mc = self.memory_ref.get_context()
             if mc:
                 parts.append(mc)
 
-        # 3. Семантический recall (уровень 3)
+        # 4. Семантический recall (уровень 3)
         if query:
             sr = self._semantic.recall_context(query, top_k=2)
             if sr:
                 parts.append(sr)
 
-        # 4. Локальный контекст (уровень 1) — только диалог, без команд
+        # 5. Локальный контекст (уровень 1) — только последние 3 диалога, без команд
         local_msgs = [m for m in self._local if not m["cmd"]]
         if local_msgs:
             lines = ["Текущий диалог:"]
-            for m in local_msgs[-self._window:]:
+            for m in local_msgs[-3:]:
                 icon = "👤" if m["role"] == "user" else "👁️"
                 lines.append(f"  {icon}: {m['text'][:150]}")
             parts.append("\n".join(lines))
@@ -225,7 +253,52 @@ class DialogContext:
         self._local.clear()
         self._chat_buf.clear()
         self._command_buf.clear()
+        self._cached_summary = ""
         return "🧹 Контекст диалога очищен."
+
+    def compress_memory(self, ask_ai_fn=None) -> str:
+        """
+        Context Anchor — сжатие памяти.
+        Аргос сам пересказывает историю, чтобы освободить место и не терять контекст.
+        ask_ai_fn — callable(prompt) → str, подставляется из ArgosCore.
+        """
+        if not self.db:
+            return "⚠️ Сжатие памяти: db не подключена."
+
+        history = self.db.get_recent_history(limit=50)
+        if not history:
+            return "ℹ️ Нет истории для сжатия."
+
+        messages_covered = len(history)
+        history_text = "\n".join(
+            f"[{m['role']}]: {m['text'][:200]}" for m in history
+        )
+
+        if ask_ai_fn:
+            try:
+                prompt = (
+                    "Кратко резюмируй эти события для долгосрочной памяти Аргоса (2-4 предложения). "
+                    "Только факты, без вступлений:\n\n" + history_text
+                )
+                summary = ask_ai_fn(prompt) or ""
+            except Exception as e:
+                log.warning("compress_memory ask_ai: %s", e)
+                summary = ""
+        else:
+            # Простое механическое сжатие без ИИ
+            topics = set()
+            for m in history:
+                words = m["text"].split()[:5]
+                topics.update(w.lower() for w in words if len(w) > 4)
+            summary = f"Сжатая память ({messages_covered} сообщений). Темы: {', '.join(list(topics)[:10])}."
+
+        if summary:
+            self._cached_summary = summary
+            self.db.save_summary(summary, messages_covered)
+            self.db.clear_old_history(keep_last=10)
+            log.info("Context compressed: %d msgs → summary (%d chars)", messages_covered, len(summary))
+            return f"✅ Память сжата: {messages_covered} сообщений → {len(summary)} символов."
+        return "⚠️ Не удалось создать резюме."
 
     def summary(self) -> str:
         prof = self._profile

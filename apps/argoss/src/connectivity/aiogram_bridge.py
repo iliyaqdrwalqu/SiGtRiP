@@ -1,93 +1,122 @@
 """
-aiogram_bridge.py — Telegram-мост Аргоса через aiogram 3.x.
+src/connectivity/aiogram_bridge.py
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Aiogram 3.x мост Аргоса.
+Используется как альтернатива python-telegram-bot там,
+где нужна asyncio-native интеграция.
+
+pip install aiogram>=3.0.0
 """
 from __future__ import annotations
 
 import asyncio
 import os
+import threading
 from typing import Any, Callable
 
 try:
-    from aiogram import Bot, Dispatcher, types as aio_types
-    from aiogram.client.default import DefaultBotProperties
-    from aiogram.enums import ParseMode
-except ImportError:  # pragma: no cover
-    Bot = None  # type: ignore[assignment,misc]
-    Dispatcher = None  # type: ignore[assignment,misc]
-    aio_types = None  # type: ignore[assignment]
-    DefaultBotProperties = None  # type: ignore[assignment,misc]
-    ParseMode = None  # type: ignore[assignment,misc]
+    from aiogram import Bot, Dispatcher, F  # type: ignore
+    from aiogram.filters import Command  # type: ignore
+    from aiogram.types import Message  # type: ignore
+    _AIOGRAM_AVAILABLE = True
+except ImportError:
+    _AIOGRAM_AVAILABLE = False
+    Bot = Dispatcher = F = Command = Message = None  # type: ignore
 
 
 class AiogramBridge:
-    """Telegram-бот на базе aiogram 3 — отправка сообщений, запуск polling."""
+    """
+    Aiogram 3.x обёртка.
+    Поддерживает polling и webhook.
+    on_message(text, user_id) → str: обработчик команд.
+    """
 
     def __init__(
         self,
-        token: str | None = None,
-        parse_mode: str | None = None,
+        token: str = "",
+        on_message: Callable[[str, int], str] | None = None,
     ):
         self.token = token or os.getenv("TELEGRAM_BOT_TOKEN", "")
-        self.parse_mode = parse_mode or "HTML"
+        self.on_message = on_message
         self._bot: Any = None
         self._dp: Any = None
+        self._thread: threading.Thread | None = None
+        self._loop: asyncio.AbstractEventLoop | None = None
 
-        if Bot and self.token:
-            self._bot = Bot(
-                token=self.token,
-                default=DefaultBotProperties(parse_mode=self.parse_mode),
-            )
+        if self._ready():
+            self._bot = Bot(token=self.token)
             self._dp = Dispatcher()
+            self._register_handlers()
 
     def _ready(self) -> bool:
-        return bool(self.token and Bot is not None and self._bot is not None)
+        return bool(self.token and _AIOGRAM_AVAILABLE)
 
     @property
-    def dispatcher(self) -> Any:
-        """Dispatcher для регистрации хендлеров (dp.message, dp.callback_query и т.д.)."""
-        return self._dp
-
-    @property
-    def bot(self) -> Any:
-        """Экземпляр aiogram.Bot."""
+    def bot(self):
         return self._bot
 
-    # ── отправка ──────────────────────────────────────────────────────
-    async def send_message(
-        self,
-        chat_id: int | str,
-        text: str,
-        **kwargs: Any,
-    ) -> dict[str, Any]:
-        """Отправить сообщение в чат."""
+    @property
+    def dispatcher(self):
+        return self._dp
+
+    # ── Handlers ─────────────────────────────────────────────────────────────
+
+    def _register_handlers(self):
+        if not self._dp:
+            return
+
+        @self._dp.message(Command("start"))
+        async def _start(msg: Message):
+            await msg.answer("🔱 Аргос онлайн. Отправь команду.")
+
+        @self._dp.message(Command("status"))
+        async def _status(msg: Message):
+            reply = self._dispatch("статус системы", msg.from_user.id)
+            await msg.answer(reply)
+
+        @self._dp.message(F.text)
+        async def _text(msg: Message):
+            reply = self._dispatch(msg.text or "", msg.from_user.id)
+            await msg.answer(reply)
+
+    def _dispatch(self, text: str, user_id: int) -> str:
+        if self.on_message:
+            try:
+                return self.on_message(text, user_id)
+            except Exception as exc:
+                return f"❌ Ошибка: {exc}"
+        return f"[Аргос] получено: {text}"
+
+    # ── Polling ───────────────────────────────────────────────────────────────
+
+    def start_polling(self) -> str:
+        """Запустить polling в отдельном потоке."""
         if not self._ready():
-            return {"ok": False, "provider": "aiogram", "error": "Aiogram bridge is not configured"}
+            return "❌ aiogram не настроен (токен или библиотека отсутствуют)"
 
-        try:
-            msg = await self._bot.send_message(chat_id=chat_id, text=text, **kwargs)
-            return {"ok": True, "provider": "aiogram", "data": {"message_id": msg.message_id}}
-        except Exception as exc:
-            return {"ok": False, "provider": "aiogram", "error": str(exc)}
+        def _run():
+            self._loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(self._loop)
+            self._loop.run_until_complete(self._dp.start_polling(self._bot))
 
-    def send_message_sync(self, chat_id: int | str, text: str, **kwargs: Any) -> dict[str, Any]:
-        """Синхронная обёртка для send_message."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.send_message(chat_id, text, **kwargs),
-        )
+        self._thread = threading.Thread(target=_run, daemon=True, name="ArgosAiogram")
+        self._thread.start()
+        return "✅ Aiogram polling запущен"
 
-    # ── polling ───────────────────────────────────────────────────────
-    async def start_polling(self) -> dict[str, Any]:
-        """Запустить polling (блокирующий)."""
+    # ── Send ─────────────────────────────────────────────────────────────────
+
+    def send_message_sync(self, chat_id: int | str, text: str) -> dict[str, Any]:
+        """Синхронная отправка сообщения."""
         if not self._ready():
-            return {"ok": False, "provider": "aiogram", "error": "Aiogram bridge is not configured"}
-
+            return {"ok": False, "error": "aiogram не настроен"}
         try:
-            await self._dp.start_polling(self._bot)
-            return {"ok": True, "provider": "aiogram", "data": "polling stopped"}
+            async def _send():
+                await self._bot.send_message(chat_id=chat_id, text=text)
+            if self._loop and self._loop.is_running():
+                fut = asyncio.run_coroutine_threadsafe(_send(), self._loop)
+                fut.result(timeout=10)
+            else:
+                asyncio.run(_send())
+            return {"ok": True, "provider": "aiogram", "chat_id": chat_id}
         except Exception as exc:
-            return {"ok": False, "provider": "aiogram", "error": str(exc)}
-
-    async def stop(self) -> None:
-        """Остановить бота и закрыть сессию."""
-        if self._bot:
-            await self._bot.session.close()
+            return {"ok": False, "error": str(exc)}

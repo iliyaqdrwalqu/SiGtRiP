@@ -43,24 +43,7 @@ from src.argos_logger                import get_logger
 from dotenv import load_dotenv
 load_dotenv()
 
-# [FIX-OLLAMA-AUTO] Автоподбор модели Ollama под железо системы
-try:
-    from src.ollama_autoselect import autoselect as _ollama_autoselect
-    _OLLAMA_AUTOSELECT_OK = True
-except Exception:
-    _OLLAMA_AUTOSELECT_OK = False
-
 log = get_logger("argos.core")
-# [MIND v2] Модули разума
-try:
-    from src.mind.dreamer import Dreamer as _Dreamer
-    from src.mind.evolution_engine import EvolutionEngine as _EvolutionEngine
-    from src.mind.self_model_v2 import SelfModelV2 as _SelfModelV2
-    _MIND_OK = True
-except Exception as _mind_err:
-    _MIND_OK = False
-    _mind_err_msg = str(_mind_err)
-
 
 _DEFAULT_PROVIDER_COOLDOWN_SECONDS = 600
 _MIN_PROVIDER_COOLDOWN_SECONDS = 60
@@ -250,6 +233,11 @@ class ArgosCore:
         self.homeostasis = None
         self.curiosity = None
         self._homeostasis_block_heavy = False
+        self.web_explorer = None
+        self.awa = None
+        self.sustain = None
+        self.health_monitor = None
+        self.failover = None
 
         self._init_voice()
         self._setup_ai()
@@ -274,31 +262,11 @@ class ArgosCore:
         self._init_grist()
         self._init_cloud_object_storage()
         self._init_own_model()
-        
-        # [MIND v2] Инициализация модулей разума
-        self.self_model_v2  = None
-        self.dreamer        = None
-        self.evolution_engine = None
-        if _MIND_OK:
-            try:
-                self.self_model_v2 = _SelfModelV2(self)
-                log.info("SelfModelV2: OK")
-            except Exception as e:
-                log.warning("SelfModelV2: %s", e)
-            try:
-                self.dreamer = _Dreamer(self)
-                self.dreamer.start()
-                log.info("Dreamer: OK")
-            except Exception as e:
-                log.warning("Dreamer: %s", e)
-            try:
-                self.evolution_engine = _EvolutionEngine(self)
-                log.info("EvolutionEngine: OK")
-            except Exception as e:
-                log.warning("EvolutionEngine: %s", e)
-        else:
-            log.warning("Mind modules недоступны: %s", _mind_err_msg)
-
+        self._init_web_explorer()
+        self._init_awa_core()
+        self._init_sustain()
+        self._init_health_monitor()
+        self._init_ai_failover()
         log.info("ArgosCore FINAL v2.0 инициализирован.")
 
     # ═══════════════════════════════════════════════════════
@@ -308,6 +276,14 @@ class ArgosCore:
         try:
             from src.memory import ArgosMemory
             self.memory = ArgosMemory()
+            try:
+                self.input_ctrl = _get_input_ctrl() if _get_input_ctrl else None
+            except Exception:
+                self.input_ctrl = None
+            try:
+                self.thought_book = ArgosThoughtBook(core=self) if ArgosThoughtBook else None
+            except Exception:
+                self.thought_book = None
             self.context.memory_ref = self.memory
             log.info("Память: OK")
         except Exception as e:
@@ -317,7 +293,8 @@ class ArgosCore:
         try:
             from src.connectivity.cloud_object_storage import IBMCloudObjectStorage
             self.cloud_object_storage = IBMCloudObjectStorage.from_env()
-            log.info(self.cloud_object_storage.status())
+            if self.cloud_object_storage.is_configured():
+                log.info(self.cloud_object_storage.status())
         except Exception as e:
             log.warning("IBM Cloud Object Storage недоступен: %s", e)
 
@@ -493,6 +470,8 @@ class ArgosCore:
             log.warning("OTG Manager: %s", e)
 
     def _init_grist(self):
+        return  # disabled
+        return  # DISABLED - blocks startup
         try:
             from src.knowledge.grist_storage import GristStorage
             self.grist = GristStorage()
@@ -511,6 +490,76 @@ class ArgosCore:
         except Exception as e:
             self.own_model = None
             log.warning("OwnModel: %s", e)
+
+    def _init_web_explorer(self):
+        """Инициализация бесплатного интернет-разведчика."""
+        try:
+            from src.skills.web_explorer import ArgosWebExplorer
+            self.web_explorer = ArgosWebExplorer(memory=self.memory)
+            # Подключаем к scrapper для обратной совместимости
+            if hasattr(self.scrapper, '__class__'):
+                self.scrapper.__class__.learn = lambda self_s, q: self.web_explorer.learn(q)
+            log.info("WebExplorer: OK (DuckDuckGo/Wikipedia/GitHub/arXiv)")
+        except Exception as e:
+            self.web_explorer = None
+            log.warning("WebExplorer: %s", e)
+
+    def _init_awa_core(self):
+        """Инициализация AWA-Core (Model Splitting маршрутизатор)."""
+        try:
+            from src.awa_core import AWACore
+            self.awa = AWACore(core=self)
+            # Подключаем ContextDB к DialogContext
+            if self.memory:
+                try:
+                    from src.db_init import ContextDB
+                    self.context.db = ContextDB()
+                    log.info("ContextDB: подключена к DialogContext")
+                except Exception as e:
+                    log.warning("ContextDB init: %s", e)
+            log.info("AWA-Core: OK (Model Splitting активен)")
+        except Exception as e:
+            self.awa = None
+            log.warning("AWA-Core: %s", e)
+
+    def _init_sustain(self):
+        """Инициализация модуля самообеспечения."""
+        try:
+            from src.self_sustain import SelfSustainEngine
+            self.sustain = SelfSustainEngine(core=self)
+            if os.getenv("ARGOS_SUSTAIN", "on").strip().lower() not in {
+                "0", "off", "false", "no", "нет"
+            }:
+                self.sustain.start()
+            log.info("SelfSustain: OK")
+        except Exception as e:
+            self.sustain = None
+            log.warning("SelfSustain: %s", e)
+
+    def _init_health_monitor(self):
+        """Инициализация фонового мониторинга здоровья системы."""
+        try:
+            from src.health_monitor import HealthMonitor
+            alert_cb = getattr(self.alerts, 'send', None) if self.alerts else None
+            self.health_monitor = HealthMonitor(
+                db_path="data/argos.db",
+                alert_callback=alert_cb,
+            )
+            self.health_monitor.start()
+            log.info("HealthMonitor: OK")
+        except Exception as e:
+            self.health_monitor = None
+            log.warning("HealthMonitor: %s", e)
+
+    def _init_ai_failover(self):
+        """Инициализация модуля автоматического переключения AI-провайдеров."""
+        try:
+            from src.ai_failover import get_failover
+            self.failover = get_failover()
+            log.info("AIFailover: OK")
+        except Exception as e:
+            self.failover = None
+            log.warning("AIFailover: %s", e)
 
     def process(self, user_text: str, admin=None, flasher=None) -> dict:
         """Обёртка над process_logic с дефолтными значениями admin/flasher."""
@@ -1109,15 +1158,19 @@ class ArgosCore:
             log.error("[Ollama] Ошибка при скачивании модели '%s': %s", model, exc)
         return False
 
-    def _ask_ollama(self, context: str, user_text: str) -> str | None:
+    def _ask_ollama(self, context: str, user_text: str, model_override: str | None = None) -> str | None:
         if not self._ensure_ollama_running():
             log.error("[Ollama] _ask_ollama: сервис недоступен, запрос отменён")
             return None
         try:
+            # ── Identity Anchor: Аргос всегда помнит кто он ──
+            from src.context_manager import IDENTITY_ANCHOR
+            anchor_prefix = f"[ID: ARGOS v2.1 | User: Vsevolod | Quantum: Analytic] {IDENTITY_ANCHOR}\n\n"
+
             # Добавляем историю в промпт
             hist = self.context.get_prompt_context()
-            full_prompt = f"{context}\n\n{hist}\n\nUser: {user_text}\nArgos:"
-            model = os.getenv("OLLAMA_MODEL", "llama3.2:1b")
+            full_prompt = f"{anchor_prefix}{context}\n\n{hist}\n\nUser: {user_text}\nArgos:"
+            model = model_override or os.getenv("OLLAMA_MODEL", "argos-core")
             ollama_timeout = int(os.getenv("OLLAMA_TIMEOUT", "600"))
             log.info("[Ollama] Отправляю запрос → %s | модель: %s", self.ollama_url, model)
             res = requests.post(
@@ -1338,16 +1391,6 @@ class ArgosCore:
             self.db.log_chat("argos", answer, engine)
 
         self.say(answer)
-        
-        # [MIND v2] Обновляем самосознание после каждого ответа
-        if self.self_model_v2:
-            try:
-                self.self_model_v2.on_interaction(
-                    user_text, answer,
-                    success="❌" not in answer and "ошибка" not in answer.lower()
-                )
-            except Exception:
-                pass
         return {"answer": answer, "state": engine}
 
     async def process_logic_async(self, user_text: str, admin, flasher) -> dict:
@@ -1362,6 +1405,146 @@ class ArgosCore:
     def execute_intent(self, text: str, admin, flasher) -> str | None:
         t = text.lower()
 
+        # ── Интернет-обучение (бесплатно) ────────────────────
+        if getattr(self, "web_explorer", None) and any(k in t for k in [
+            "изучи ", "изучи интернет", "найди в интернете", "поищи в интернете",
+            "погугли ", "поищи ", "найди информацию", "learn ", "search web",
+            "что такое ", "расскажи про ", "расскажи о ",
+        ]):
+            # Извлекаем тему из команды
+            topic = text
+            for marker in [
+                "изучи интернет", "найди в интернете", "поищи в интернете",
+                "погугли", "поищи", "найди информацию", "изучи",
+                "что такое", "расскажи про", "расскажи о", "learn", "search web",
+            ]:
+                if marker in t:
+                    idx = t.find(marker)
+                    topic = text[idx + len(marker):].strip().strip(":")
+                    break
+            if topic:
+                return self.web_explorer.learn(topic.strip())
+            return self.web_explorer.status()
+
+        if getattr(self, "web_explorer", None) and any(k in t for k in [
+            "веб статус", "web статус", "интернет статус", "explorer status",
+        ]):
+            return self.web_explorer.status()
+
+        if getattr(self, "web_explorer", None) and any(k in t for k in [
+            "открой страницу ", "загрузи страницу ", "fetch ", "прочитай сайт ",
+        ]):
+            url = text.split()[-1] if text.split() else ""
+            if url.startswith("http"):
+                return self.web_explorer.fetch_page(url)
+
+        if getattr(self, "web_explorer", None) and any(k in t for k in [
+            "найди на github", "github поиск", "github search",
+        ]):
+            query = text
+            for marker in ["найди на github", "github поиск", "github search"]:
+                if marker in t:
+                    query = text[t.find(marker) + len(marker):].strip()
+                    break
+            return self.web_explorer.search_github(query) or "GitHub: ничего не найдено."
+
+        if getattr(self, "web_explorer", None) and any(k in t for k in [
+            "найди статью", "arxiv поиск", "arxiv search", "научная статья",
+        ]):
+            query = text
+            for marker in ["найди статью", "arxiv поиск", "arxiv search", "научная статья"]:
+                if marker in t:
+                    query = text[t.find(marker) + len(marker):].strip()
+                    break
+            return self.web_explorer.search_arxiv(query) or "arXiv: статей не найдено."
+
+        # ── Самообеспечение ──────────────────────────────────
+        if getattr(self, "sustain", None) and any(k in t for k in [
+            "самообеспечение статус", "sustain status", "статус обучения",
+        ]):
+            return self.sustain.status()
+        if getattr(self, "sustain", None) and any(k in t for k in [
+            "самообеспечение вкл", "sustain on", "начни учиться",
+        ]):
+            return self.sustain.start()
+        if getattr(self, "sustain", None) and any(k in t for k in [
+            "самообеспечение выкл", "sustain off",
+        ]):
+            return self.sustain.stop()
+        if getattr(self, "sustain", None) and any(k in t for k in [
+            "учись сейчас", "learn now", "обучись",
+        ]):
+            topic_part = text
+            for marker in ["учись сейчас", "learn now", "обучись"]:
+                if marker in t:
+                    topic_part = text[t.find(marker) + len(marker):].strip()
+                    break
+            return self.sustain.learn_now(topic_part or "")
+        if getattr(self, "sustain", None) and any(k in t for k in [
+            "бесплатные ресурсы", "free resources", "что бесплатно",
+        ]):
+            return self.sustain.free_resources_report()
+
+        # ── AWA Model Splitting ───────────────────────────────
+        if getattr(self, "awa", None) and any(k in t for k in [
+            "awa статус", "awa status", "маршрутизатор статус",
+        ]):
+            return self.awa.status()
+        if getattr(self, "awa", None) and any(k in t for k in [
+            "awa задача ", "awa task ", "route task ",
+        ]):
+            task_part = text
+            for marker in ["awa задача", "awa task", "route task"]:
+                if marker in t:
+                    task_part = text[t.find(marker) + len(marker):].strip()
+                    break
+            return self.awa.route_task(task_part)
+
+        # ── GPU / VRAM мониторинг ────────────────────────────
+        if any(k in t for k in [
+            "gpu статус", "vram статус", "видеокарта статус",
+            "gpu status", "vram check", "оптимизируй vram",
+        ]):
+            return self.sensors.optimize_vram_distribution()
+
+        # ── Сжатие памяти (Context Anchor) ───────────────────
+        if any(k in t for k in [
+            "сожми память", "compress memory", "сжать контекст", "очисти контекст",
+        ]):
+            ask_fn = None
+            if hasattr(self, "_ask_ai_simple"):
+                ask_fn = self._ask_ai_simple
+            elif self.memory:
+                ask_fn = lambda p: (
+                    self._ask_gemini("", p) or self._ask_ollama("", p) or ""
+                )
+            return self.context.compress_memory(ask_fn)
+
+        # ── Глубокий анализ (Idle Cycle) ─────────────────────
+        if getattr(self, "curiosity", None) and any(k in t for k in [
+            "глубокий анализ", "idle cycle", "deep analysis",
+            "любопытство анализ",
+        ]):
+            return self.curiosity.idle_cycle()
+
+        # ── Гибридный маршрутизатор: CPU > 60% → Gemini ──────
+        if any(kw in t for kw in ["напиши код", "разработай", "реализуй", "создай алгоритм"]):
+            try:
+                import psutil as _psutil
+                cpu_now = 0.0
+                if cpu_now > 60 and self.model:
+                    log.info(
+                        "Гибридный маршрут: CPU=%d%% > 60, передаю задачу Gemini",
+                        cpu_now,
+                    )
+                    result = self._ask_gemini("", text)
+                    if result:
+                        return (
+                            f"🧠 [CPU={cpu_now:.0f}%] Задача передана Внешнему Интеллекту:\n{result}"
+                        )
+            except Exception:
+                pass
+
         if any(k in t for k in [
             "проверь работу ии системы",
             "проверь работу ai системы",
@@ -1373,107 +1556,33 @@ class ArgosCore:
         ]):
             return self._ai_modes_diagnostic()
 
-        if self._homeostasis_block_heavy and any(k in t for k in [
+        if getattr(self, "_homeostasis_block_heavy", False) and any(k in t for k in [
             "посмотри на экран", "что на экране", "посмотри в камеру", "анализ фото",
             "проанализируй изображение", "компиля", "compile", "создай прошивку", "прошей шлюз", "прошей gateway"
         ]):
             return "🔥 Гомеостаз: тяжёлая операция временно заблокирована (режим Protective/Unstable)."
 
-        if self.homeostasis and any(k in t for k in ["гомеостаз статус", "статус гомеостаза", "homeostasis status"]):
+        if getattr(self, "homeostasis", None) and any(k in t for k in ["гомеостаз статус", "статус гомеостаза", "homeostasis status"]):
             return self.homeostasis.status()
-        if self.homeostasis and any(k in t for k in ["гомеостаз вкл", "включи гомеостаз", "homeostasis on"]):
+        if getattr(self, "homeostasis", None) and any(k in t for k in ["гомеостаз вкл", "включи гомеостаз", "homeostasis on"]):
             return self.homeostasis.start()
-        if self.homeostasis and any(k in t for k in ["гомеостаз выкл", "выключи гомеостаз", "homeostasis off"]):
+        if getattr(self, "homeostasis", None) and any(k in t for k in ["гомеостаз выкл", "выключи гомеостаз", "homeostasis off"]):
             return self.homeostasis.stop()
 
-        if self.curiosity and any(k in t for k in ["любопытство статус", "статус любопытства", "curiosity status"]):
+        if getattr(self, "curiosity", None) and any(k in t for k in ["любопытство статус", "статус любопытства", "curiosity status"]):
             return self.curiosity.status()
-        if self.curiosity and any(k in t for k in ["любопытство вкл", "включи любопытство", "curiosity on"]):
+        if getattr(self, "curiosity", None) and any(k in t for k in ["любопытство вкл", "включи любопытство", "curiosity on"]):
             return self.curiosity.start()
-        if self.curiosity and any(k in t for k in ["любопытство выкл", "выключи любопытство", "curiosity off"]):
+        if getattr(self, "curiosity", None) and any(k in t for k in ["любопытство выкл", "выключи любопытство", "curiosity off"]):
             return self.curiosity.stop()
-        if self.curiosity and any(k in t for k in ["любопытство сейчас", "curiosity now"]):
+        if getattr(self, "curiosity", None) and any(k in t for k in ["любопытство сейчас", "curiosity now"]):
             return self.curiosity.ask_now()
 
-
-        # [FIX-OLLAMA-AUTO] Команды управления Ollama autoselect
-        if any(w in t for w in ["ollama статус", "ollama автовыбор", "ollama модель"]):
-            try:
-                from src.ollama_autoselect import status_report
-                return {"answer": status_report(
-                    self.ollama_url.replace("/api/generate", "")
-                )}
-            except Exception as e:
-                return {"answer": f"Ollama: {e}"}
-
-        if any(w in t for w in ["ollama авто", "подобрать модель ollama", "выбери модель"]):
-            try:
-                from src.ollama_autoselect import autoselect
-                result = autoselect(
-                    ollama_url=self.ollama_url.replace("/api/generate", ""),
-                    force=True,
-                )
-                return {"answer": result["message"]}
-            except Exception as e:
-                return {"answer": f"Ollama autoselect: {e}"}
-
-        # [MIND v2] Команды разума
-        if any(w in t for w in ["кто я", "who am i", "самосознание", "интроспекция"]):
-            if self.self_model_v2:
-                return {"answer": self.self_model_v2.who_am_i()}
-            return {"answer": "SelfModelV2 недоступна."}
-
-        if any(w in t for w in ["биография", "моя история", "что было"]):
-            if self.self_model_v2:
-                return {"answer": self.self_model_v2.biography.timeline()}
-            return {"answer": "Биография недоступна."}
-
-        if any(w in t for w in ["компетенции", "мои способности", "что умею"]):
-            if self.self_model_v2:
-                return {"answer": self.self_model_v2.competency.report()}
-            return {"answer": "Профиль компетенций недоступен."}
-
-        if any(w in t for w in ["эмоция", "настроение аргоса", "как ты себя чувствуешь"]):
-            if self.self_model_v2:
-                return {"answer": f"Моё состояние: {self.self_model_v2.emotion.describe()}"}
-            return {"answer": "Эмоциональная модель недоступна."}
-
-        if any(w in t for w in ["dreamer статус", "осмысление", "сновидение"]):
-            if self.dreamer:
-                return {"answer": self.dreamer.status()}
-            return {"answer": "Dreamer недоступен."}
-
-        if any(w in t for w in ["dreamer запустить", "начни осмысление"]):
-            if self.dreamer:
-                return {"answer": self.dreamer.force_cycle()}
-            return {"answer": "Dreamer недоступен."}
-
-        if any(w in t for w in ["эволюция статус", "история эволюции"]):
-            if self.evolution_engine:
-                return {"answer": self.evolution_engine.status() + "\n" +
-                        self.evolution_engine.history()}
-            return {"answer": "EvolutionEngine недоступен."}
-
-        if any(w in t for w in ["эволюция запустить", "эволюционируй", "улучшись"]):
-            if self.evolution_engine:
-                return {"answer": self.evolution_engine.evolve()}
-            return {"answer": "EvolutionEngine недоступен."}
-
-        if any(w in t for w in ["слабые места", "где я ошибаюсь", "мои слабости"]):
-            if self.evolution_engine:
-                return {"answer": self.evolution_engine.detect_weaknesses()}
-            return {"answer": "EvolutionEngine недоступен."}
-
-        if any(w in t for w in ["сохрани себя", "сохрани модель"]):
-            if self.self_model_v2:
-                self.self_model_v2.save()
-                return {"answer": "✅ Модель самосознания сохранена."}
-
-        if self.git_ops and any(k in t for k in ["git статус", "гит статус", "git status"]):
+        if getattr(self, "git_ops", None) and any(k in t for k in ["git статус", "гит статус", "git status"]):
             return self.git_ops.status()
-        if self.git_ops and any(k in t for k in ["git пуш", "гит пуш", "git push"]):
+        if getattr(self, "git_ops", None) and any(k in t for k in ["git пуш", "гит пуш", "git push"]):
             return self.git_ops.push()
-        if self.git_ops and any(k in t for k in ["git автокоммит и пуш", "гит автокоммит и пуш", "git auto push", "git commit and push"]):
+        if getattr(self, "git_ops", None) and any(k in t for k in ["git автокоммит и пуш", "гит автокоммит и пуш", "git auto push", "git commit and push"]):
             msg = text
             for marker in ["git автокоммит и пуш", "гит автокоммит и пуш", "git auto push", "git commit and push"]:
                 if marker in msg.lower():
@@ -1483,7 +1592,7 @@ class ArgosCore:
             if not msg:
                 msg = "chore: argos autonomous update"
             return self.git_ops.commit_and_push(msg)
-        if self.git_ops and (t.startswith("git коммит ") or t.startswith("гит коммит ") or t.startswith("git commit ")):
+        if getattr(self, "git_ops", None) and (t.startswith("git коммит ") or t.startswith("гит коммит ") or t.startswith("git commit ")):
             msg = text
             for marker in ["git коммит", "гит коммит", "git commit"]:
                 if marker in msg.lower():
@@ -1517,10 +1626,10 @@ class ArgosCore:
         if any(k in t for k in ["оператор восстановление", "сценарий восстановление"]):
             return self._operator_recovery()
 
-        if self.module_loader and any(k in t for k in ["модули", "список модулей", "modules"]):
+        if getattr(self, "module_loader", None) and any(k in t for k in ["модули", "список модулей", "modules"]):
             return self.module_loader.list_modules()
 
-        if self.tool_calling and any(k in t for k in ["схемы инструментов", "tool schema", "tool calling schema", "json схемы инструментов"]):
+        if getattr(self, "tool_calling", None) and any(k in t for k in ["схемы инструментов", "tool schema", "tool calling schema", "json схемы инструментов"]):
             return json.dumps(self.tool_calling.tool_schemas(), ensure_ascii=False, indent=2)
 
         # ── Мастер создания умной системы (пошаговый) ─────
@@ -1640,6 +1749,195 @@ class ArgosCore:
             return "Формат: скопируй файл [источник] [назначение]"
 
         # ── Терминал ──────────────────────────────────────
+                # ── Управление мышью и клавиатурой ──────────────────────────
+        if any(k in t for k in ["мышь", "mouse", "курсор"]):
+            ctrl = getattr(self, "input_ctrl", None)
+            if not ctrl:
+                return "❌ input_control не инициализирован"
+            parts = text.strip().split()
+            if len(parts) < 2:
+                return ctrl.status()
+            cmd = parts[1].lower()
+            nums = []
+            for p in parts[2:]:
+                try: nums.append(int(p))
+                except: pass
+            if cmd in ("move", "переместить", "перемести"):
+                return ctrl.move(nums[0], nums[1]) if len(nums) >= 2 else "❓ мышь move X Y"
+            elif cmd in ("click", "клик", "кликни"):
+                return ctrl.click(nums[0] if len(nums) > 0 else None,
+                                   nums[1] if len(nums) > 1 else None)
+            elif cmd in ("rclick", "правый"):
+                return ctrl.right_click(nums[0] if nums else None,
+                                         nums[1] if len(nums)>1 else None)
+            elif cmd in ("dclick", "двойной"):
+                return ctrl.double_click(nums[0] if nums else None,
+                                          nums[1] if len(nums)>1 else None)
+            elif cmd in ("scroll", "прокрутка"):
+                return ctrl.scroll(nums[0] if nums else 3)
+            elif cmd in ("drag", "перетащи"):
+                return ctrl.drag(*nums[:4]) if len(nums) >= 4 else "❓ мышь drag X1 Y1 X2 Y2"
+            elif cmd in ("позиция", "position", "pos"):
+                return ctrl.position()
+            return ctrl.status()
+
+        if any(k in t for k in ["клавиша", "нажми", "hotkey", "keyboard"]):
+            ctrl = getattr(self, "input_ctrl", None)
+            if not ctrl:
+                return "❌ input_control не инициализирован"
+            key = text.split(None, 1)[1].strip() if len(text.split()) > 1 else ""
+            return ctrl.press(key) if key else "❓ клавиша ENTER / клавиша ctrl+c"
+
+        if t.startswith("печатай ") or t.startswith("напечатай "):
+            ctrl = getattr(self, "input_ctrl", None)
+            if not ctrl:
+                return "❌ input_control не инициализирован"
+            txt = text.split(None, 1)[1].strip() if len(text.split()) > 1 else ""
+            return ctrl.type_text(txt) if txt else "❓ печатай ТЕКСТ"
+
+        if t.startswith("буфер "):
+            ctrl = getattr(self, "input_ctrl", None)
+            if ctrl:
+                txt = text.split(None, 1)[1].strip()
+                return ctrl.write_clipboard(txt)
+
+        if t.startswith("макрос "):
+            ctrl = getattr(self, "input_ctrl", None)
+            if ctrl:
+                name = text.split(None, 1)[1].strip()
+                return ctrl.run_macro(name)
+
+        if t in ("скриншот", "screenshot"):
+            ctrl = getattr(self, "input_ctrl", None)
+            return ctrl.screenshot() if ctrl else "❌ input_control недоступен"
+
+        
+                # ── Управление мышью и клавиатурой ──────────────────────────
+        if any(k in t for k in ["мышь", "mouse", "курсор"]):
+            ctrl = getattr(self, "input_ctrl", None)
+            if not ctrl:
+                return "❌ input_control не инициализирован"
+            parts = text.strip().split()
+            if len(parts) < 2:
+                return ctrl.status()
+            cmd = parts[1].lower()
+            nums = []
+            for p in parts[2:]:
+                try: nums.append(int(p))
+                except: pass
+            if cmd in ("move", "переместить", "перемести"):
+                return ctrl.move(nums[0], nums[1]) if len(nums) >= 2 else "❓ мышь move X Y"
+            elif cmd in ("click", "клик", "кликни"):
+                return ctrl.click(nums[0] if len(nums) > 0 else None,
+                                   nums[1] if len(nums) > 1 else None)
+            elif cmd in ("rclick", "правый"):
+                return ctrl.right_click(nums[0] if nums else None,
+                                         nums[1] if len(nums)>1 else None)
+            elif cmd in ("dclick", "двойной"):
+                return ctrl.double_click(nums[0] if nums else None,
+                                          nums[1] if len(nums)>1 else None)
+            elif cmd in ("scroll", "прокрутка"):
+                return ctrl.scroll(nums[0] if nums else 3)
+            elif cmd in ("drag", "перетащи"):
+                return ctrl.drag(*nums[:4]) if len(nums) >= 4 else "❓ мышь drag X1 Y1 X2 Y2"
+            elif cmd in ("позиция", "position", "pos"):
+                return ctrl.position()
+            return ctrl.status()
+
+        if any(k in t for k in ["клавиша", "нажми", "hotkey", "keyboard"]):
+            ctrl = getattr(self, "input_ctrl", None)
+            if not ctrl:
+                return "❌ input_control не инициализирован"
+            key = text.split(None, 1)[1].strip() if len(text.split()) > 1 else ""
+            return ctrl.press(key) if key else "❓ клавиша ENTER / клавиша ctrl+c"
+
+        if t.startswith("печатай ") or t.startswith("напечатай "):
+            ctrl = getattr(self, "input_ctrl", None)
+            if not ctrl:
+                return "❌ input_control не инициализирован"
+            txt = text.split(None, 1)[1].strip() if len(text.split()) > 1 else ""
+            return ctrl.type_text(txt) if txt else "❓ печатай ТЕКСТ"
+
+        if t.startswith("буфер "):
+            ctrl = getattr(self, "input_ctrl", None)
+            if ctrl:
+                txt = text.split(None, 1)[1].strip()
+                return ctrl.write_clipboard(txt)
+
+        if t.startswith("макрос "):
+            ctrl = getattr(self, "input_ctrl", None)
+            if ctrl:
+                name = text.split(None, 1)[1].strip()
+                return ctrl.run_macro(name)
+
+        if t in ("скриншот", "screenshot"):
+            ctrl = getattr(self, "input_ctrl", None)
+            return ctrl.screenshot() if ctrl else "❌ input_control недоступен"
+
+        
+                # ── Управление мышью и клавиатурой ──────────────────────────
+        if any(k in t for k in ["мышь", "mouse", "курсор"]):
+            ctrl = getattr(self, "input_ctrl", None)
+            if not ctrl:
+                return "❌ input_control не инициализирован"
+            parts = text.strip().split()
+            if len(parts) < 2:
+                return ctrl.status()
+            cmd = parts[1].lower()
+            nums = []
+            for p in parts[2:]:
+                try: nums.append(int(p))
+                except: pass
+            if cmd in ("move", "переместить", "перемести"):
+                return ctrl.move(nums[0], nums[1]) if len(nums) >= 2 else "❓ мышь move X Y"
+            elif cmd in ("click", "клик", "кликни"):
+                return ctrl.click(nums[0] if len(nums) > 0 else None,
+                                   nums[1] if len(nums) > 1 else None)
+            elif cmd in ("rclick", "правый"):
+                return ctrl.right_click(nums[0] if nums else None,
+                                         nums[1] if len(nums)>1 else None)
+            elif cmd in ("dclick", "двойной"):
+                return ctrl.double_click(nums[0] if nums else None,
+                                          nums[1] if len(nums)>1 else None)
+            elif cmd in ("scroll", "прокрутка"):
+                return ctrl.scroll(nums[0] if nums else 3)
+            elif cmd in ("drag", "перетащи"):
+                return ctrl.drag(*nums[:4]) if len(nums) >= 4 else "❓ мышь drag X1 Y1 X2 Y2"
+            elif cmd in ("позиция", "position", "pos"):
+                return ctrl.position()
+            return ctrl.status()
+
+        if any(k in t for k in ["клавиша", "нажми", "hotkey", "keyboard"]):
+            ctrl = getattr(self, "input_ctrl", None)
+            if not ctrl:
+                return "❌ input_control не инициализирован"
+            key = text.split(None, 1)[1].strip() if len(text.split()) > 1 else ""
+            return ctrl.press(key) if key else "❓ клавиша ENTER / клавиша ctrl+c"
+
+        if t.startswith("печатай ") or t.startswith("напечатай "):
+            ctrl = getattr(self, "input_ctrl", None)
+            if not ctrl:
+                return "❌ input_control не инициализирован"
+            txt = text.split(None, 1)[1].strip() if len(text.split()) > 1 else ""
+            return ctrl.type_text(txt) if txt else "❓ печатай ТЕКСТ"
+
+        if t.startswith("буфер "):
+            ctrl = getattr(self, "input_ctrl", None)
+            if ctrl:
+                txt = text.split(None, 1)[1].strip()
+                return ctrl.write_clipboard(txt)
+
+        if t.startswith("макрос "):
+            ctrl = getattr(self, "input_ctrl", None)
+            if ctrl:
+                name = text.split(None, 1)[1].strip()
+                return ctrl.run_macro(name)
+
+        if t in ("скриншот", "screenshot"):
+            ctrl = getattr(self, "input_ctrl", None)
+            return ctrl.screenshot() if ctrl else "❌ input_control недоступен"
+
+        
         if any(k in t for k in ["консоль", "терминал"]):
             if not self.context.allow_root:
                 return "⛔ Команды терминала ограничены текущим квантовым профилем (без root-допуска)."
@@ -1713,6 +2011,8 @@ class ArgosCore:
                 return f"❌ {e}"
 
         if any(k in t for k in ["создай копию", "репликация"]):
+            if getattr(self, "awa", None) and getattr(self.awa, "lazarus", None):
+                self.awa.lazarus.spread_to_nodes()
             return self.replicator.create_replica()
         if "сканируй порты" in t:
             return f"Порты: {flasher.scan_ports()}"
@@ -1905,15 +2205,15 @@ class ArgosCore:
             return self.start_wake_word(admin, flasher)
 
         # ── Навыки ────────────────────────────────────────
-        if self.skill_loader and any(k in t for k in ["навыки v2", "skills v2", "skillloader"]):
+        if getattr(self, "skill_loader", None) and any(k in t for k in ["навыки v2", "skills v2", "skillloader"]):
             return self.skill_loader.list_skills()
-        if self.skill_loader and t.startswith("загрузи навык "):
+        if getattr(self, "skill_loader", None) and t.startswith("загрузи навык "):
             name = text.split("загрузи навык ", 1)[-1].strip()
             return self.skill_loader.load(name, core=self)
-        if self.skill_loader and t.startswith("выгрузи навык "):
+        if getattr(self, "skill_loader", None) and t.startswith("выгрузи навык "):
             name = text.split("выгрузи навык ", 1)[-1].strip()
             return self.skill_loader.unload(name)
-        if self.skill_loader and t.startswith("перезагрузи навык "):
+        if getattr(self, "skill_loader", None) and t.startswith("перезагрузи навык "):
             name = text.split("перезагрузи навык ", 1)[-1].strip()
             return self.skill_loader.reload(name, core=self)
 
@@ -2123,40 +2423,40 @@ class ArgosCore:
             return "P2P не запущен."
 
         # ── DAG ───────────────────────────────────────────
-        if self.dag_manager and any(k in t for k in ["список dag", "dag список", "доступные dag"]):
+        if getattr(self, "dag_manager", None) and any(k in t for k in ["список dag", "dag список", "доступные dag"]):
             return self.dag_manager.list_dags()
-        if self.dag_manager and ("запусти_dag" in t or "запусти dag" in t):
+        if getattr(self, "dag_manager", None) and ("запусти_dag" in t or "запусти dag" in t):
             name = text.replace("запусти_dag", "").replace("запусти dag", "").strip()
             name = name.replace(".json", "")
             name = name.split("/")[-1]
             if not name:
                 return "Формат: запусти_dag имя_графа"
             return self.dag_manager.run(name)
-        if self.dag_manager and ("создай_dag" in t or "создай dag" in t):
+        if getattr(self, "dag_manager", None) and ("создай_dag" in t or "создай dag" in t):
             desc = text.replace("создай_dag", "").replace("создай dag", "").strip()
             if not desc:
                 return "Формат: создай_dag описание шагов"
             return self.dag_manager.create_from_text(desc)
-        if self.dag_manager and any(k in t for k in ["синхронизируй dag", "dag sync"]):
+        if getattr(self, "dag_manager", None) and any(k in t for k in ["синхронизируй dag", "dag sync"]):
             return self.dag_manager.sync_to_p2p()
 
         # ── GitHub Marketplace ────────────────────────────
-        if self.marketplace and "установи навык из github" in t:
+        if getattr(self, "marketplace", None) and "установи навык из github" in t:
             spec = text.split("установи навык из github", 1)[-1].strip().split()
             if len(spec) < 2:
                 return "Формат: установи навык из github USER/REPO SKILL"
             return self.marketplace.install(repo=spec[0], skill_name=spec[1])
-        if self.marketplace and "обнови из github" in t:
+        if getattr(self, "marketplace", None) and "обнови из github" in t:
             spec = text.split("обнови из github", 1)[-1].strip().split()
             if len(spec) < 2:
                 return "Формат: обнови из github USER/REPO SKILL"
             return self.marketplace.update(repo=spec[0], skill_name=spec[1])
-        if self.marketplace and "оцени навык" in t:
+        if getattr(self, "marketplace", None) and "оцени навык" in t:
             spec = text.split("оцени навык", 1)[-1].strip().split()
             if len(spec) < 2:
                 return "Формат: оцени навык SKILL [1-5]"
             return self.marketplace.rate(spec[0], spec[1])
-        if self.marketplace and any(k in t for k in ["рейтинг навыков", "оценки навыков"]):
+        if getattr(self, "marketplace", None) and any(k in t for k in ["рейтинг навыков", "оценки навыков"]):
             return self.marketplace.ratings_report()
 
         # ── История ───────────────────────────────────────

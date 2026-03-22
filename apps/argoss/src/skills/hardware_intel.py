@@ -74,6 +74,7 @@ def _manual_report(core=None) -> str:
             cpu_pct = psutil.cpu_percent(interval=0.5)
             cpu_cores = os.cpu_count() or 1
             ram = psutil.virtual_memory()
+            ram = psutil.virtual_memory()
             report += f"🖥️  [CPU]: {cpu_cores} ядер, загрузка {cpu_pct:.1f}%\n"
             report += f"💾 [RAM]: {ram.percent:.1f}% использовано ({ram.used // 1024**2} MB / {ram.total // 1024**2} MB)\n"
         except ImportError:

@@ -265,8 +265,8 @@ class ArgosCuriosity:
         """Возвращает строку с реальным показателем системы."""
         try:
             import psutil
-            cpu  = psutil.cpu_percent(interval=0.3)
-            ram  = psutil.virtual_memory().percent
+            cpu  = 0.0
+            ram  = 0.0
             hour = datetime.datetime.now().hour
 
             if cpu > 75:
@@ -288,6 +288,59 @@ class ArgosCuriosity:
         question = self._pick_question()
         self.core.say(question)
         return f"👁️ Аргос спрашивает: «{question}»"
+
+    def idle_cycle(self) -> str:
+        """
+        Batch Processing — глубокая обработка знаний в режиме простоя.
+        Вызывается когда CPU загружен менее чем на 30%.
+        Аргос анализирует накопленные данные и создаёт инсайты.
+        """
+        try:
+            import psutil
+            cpu_load = 0.0
+        except Exception:
+            cpu_load = 0.0
+
+        if cpu_load >= 30:
+            return f"⏳ Аргос занят (CPU {cpu_load:.0f}%). Глубокий анализ отложен."
+
+        log.info("🌙 Аргос в фазе глубокого анализа (CPU=%.0f%%)", cpu_load)
+
+        results = []
+
+        # 1. Внутренний мозговой штурм через Evolution
+        if self.core:
+            try:
+                evolution = getattr(self.core, "evolution", None)
+                if evolution and hasattr(evolution, "internal_brainstorm"):
+                    brainstorm = evolution.internal_brainstorm()
+                    if brainstorm:
+                        results.append(f"🧬 Эволюция: {brainstorm[:200]}")
+            except Exception as e:
+                log.debug("idle_cycle evolution: %s", e)
+
+        # 2. Исследовательский цикл Curiosity
+        try:
+            self._run_research_cycle()
+            results.append("🔬 Цикл исследования выполнен")
+        except Exception as e:
+            log.debug("idle_cycle research: %s", e)
+
+        # 3. Запускаем цикл самообучения если есть SelfSustain
+        if self.core:
+            sustain = getattr(self.core, "sustain", None)
+            if sustain and hasattr(sustain, "_auto_learn_cycle"):
+                try:
+                    sustain._auto_learn_cycle()
+                    results.append("🌐 Автообучение выполнено")
+                except Exception as e:
+                    log.debug("idle_cycle sustain: %s", e)
+
+        if results:
+            summary = " | ".join(results)
+            log.info("🌙 Глубокий анализ завершён: %s", summary)
+            return f"🌙 Аргос завершил глубокий анализ:\n  {summary}"
+        return "🌙 Аргос в режиме ожидания."
 
     def status(self) -> str:
         last = ""

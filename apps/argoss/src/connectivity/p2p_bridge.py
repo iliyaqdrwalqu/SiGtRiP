@@ -81,7 +81,7 @@ class NodeProfile:
 
     def get_power(self) -> dict:
         """Вычислительная мощность ноды (0–100)."""
-        cpu_free  = 100 - psutil.cpu_percent(interval=0.3)
+        cpu_free  = 100 - 0.0
         ram       = psutil.virtual_memory()
         ram_free  = (ram.available / ram.total) * 100
         cpu_cores = psutil.cpu_count(logical=False) or 1

@@ -4,9 +4,6 @@ import shlex
 import tempfile
 import subprocess
 from pathlib import Path
-from src.argos_logger import get_logger
-
-log = get_logger("argos.telegram")
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 from telegram.error import InvalidToken, TelegramError
 from telegram.ext import (
@@ -19,13 +16,12 @@ HISTORY_MESSAGES_LIMIT = 10
 
 class ArgosTelegram:
     def __init__(self, core, admin, flasher):
-        self.core        = core
-        self.admin       = admin
-        self.flasher     = flasher
-        self.token       = os.getenv("TELEGRAM_BOT_TOKEN")
-        self.user_id     = os.getenv("USER_ID")
-        self.allowed_ids = {uid.strip() for uid in (os.getenv("USER_ID") or "").split(",") if uid.strip()}
-        self.app         = None
+        self.core    = core
+        self.admin   = admin
+        self.flasher = flasher
+        self.token   = os.getenv("TELEGRAM_BOT_TOKEN")
+        self.user_id = os.getenv("USER_ID")
+        self.app     = None
 
     def _find_apk_artifact(self) -> str | None:
         candidates = []
@@ -70,14 +66,15 @@ class ArgosTelegram:
             return False, "Токен не задан"
         if not self._looks_like_token(self.token):
             return False, "Формат токена некорректен"
-        if not self.allowed_ids:
+        if not self.user_id:
             return False, "USER_ID не задан"
         return True, "ok"
 
     # ── ПРОВЕРКА ДОСТУПА ──────────────────────────────────
     def _auth(self, update: Update) -> bool:
-        """Проверяет доступ. USER_ID может содержать несколько ID через запятую: 123,456,789."""
-        return str(update.effective_user.id) in self.allowed_ids
+        if str(update.effective_user.id) != str(self.user_id):
+            return False
+        return True
 
     # ── КОМАНДЫ ───────────────────────────────────────────
     def _control_keyboard(self) -> ReplyKeyboardMarkup:
@@ -131,8 +128,8 @@ class ArgosTelegram:
             f"📊 *СИСТЕМНЫЙ ДОКЛАД*\n\n"
             f"{stats}\n\n"
             f"{health}\n\n"
-            f"⚛️ Квантовое состояние: `{{state['name']}}`\n"
-            f"Вектор: `{{state['vector']}}`"
+            f"⚛️ Квантовое состояние: `{state['name']}`\n"
+            f"Вектор: `{state['vector']}`"
         )
         await update.message.reply_text(msg, parse_mode="Markdown")
 
@@ -175,9 +172,9 @@ class ArgosTelegram:
             report = CryptoSentinel().report()
             await update.message.reply_text(report)
         except Exception as e:
-            await update.message.reply_text(f"❌ Крипто: {{e}}")
+            await update.message.reply_text(f"❌ Крипто: {e}")
 
-    async def cmd_history(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    async def cmd_history(self, update, ctx):
         if not self._auth(update): return
         if self.core.db:
             hist = self.core.db.format_history(HISTORY_MESSAGES_LIMIT)
@@ -185,23 +182,23 @@ class ArgosTelegram:
         else:
             await update.message.reply_text("БД не подключена.")
 
-    async def cmd_geo(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    async def cmd_geo(self, update, ctx):
         if not self._auth(update): return
         try:
             from src.connectivity.spatial import SpatialAwareness
             report = SpatialAwareness(db=self.core.db).get_full_report()
             await update.message.reply_text(report)
         except Exception as e:
-            await update.message.reply_text(f"❌ Геолокация: {{e}}")
+            await update.message.reply_text(f"❌ Геолокация: {e}")
 
-    async def cmd_memory(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    async def cmd_memory(self, update, ctx):
         if not self._auth(update): return
         if self.core.memory:
             await update.message.reply_text(self.core.memory.format_memory()[:4000])
         else:
             await update.message.reply_text("Память не активирована.")
 
-    async def cmd_alerts(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    async def cmd_alerts(self, update, ctx):
         if not self._auth(update): return
         if self.core.alerts:
             await update.message.reply_text(self.core.alerts.status())
@@ -215,7 +212,7 @@ class ArgosTelegram:
             result = self.core.replicator.create_replica()
             await update.message.reply_text(result)
         except Exception as e:
-            await update.message.reply_text(f"❌ {{e}}")
+            await update.message.reply_text(f"❌ {e}")
 
     async def cmd_smart(self, update, ctx):
         """Статус умных систем."""
@@ -241,7 +238,7 @@ class ArgosTelegram:
         await update.message.reply_text("📦 Запускаю сборку APK. Это может занять несколько минут...")
         ok, payload = await asyncio.to_thread(self._build_apk_sync)
         if not ok:
-            await update.message.reply_text(f"❌ {{payload}}")
+            await update.message.reply_text(f"❌ {payload}")
             return
 
         apk_path = payload
@@ -249,7 +246,7 @@ class ArgosTelegram:
             with open(apk_path, "rb") as f:
                 await update.message.reply_document(document=f, filename=os.path.basename(apk_path), caption="✅ APK готов")
         except Exception as e:
-            await update.message.reply_text(f"❌ Не удалось отправить APK: {{e}}")
+            await update.message.reply_text(f"❌ Не удалось отправить APK: {e}")
 
     async def cmd_help(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         if not self._auth(update): return
@@ -307,7 +304,7 @@ class ArgosTelegram:
         state  = result['state']
 
         await update.message.reply_text(
-            f"👁️ *ARGOS* `[{state}]`\n\n{{answer}}",
+            f"👁️ *ARGOS* `[{state}]`\n\n{answer}",
             parse_mode="Markdown"
         )
 
@@ -336,16 +333,16 @@ class ArgosTelegram:
                 await update.message.reply_text("🤷 Не удалось распознать голосовое. Попробуйте ещё раз.")
                 return
 
-            await update.message.reply_text(f"📝 Распознано: {{text}}")
+            await update.message.reply_text(f"📝 Распознано: {text}")
             result = await self.core.process_logic_async(text, self.admin, self.flasher)
             answer = result['answer'][:4000]
             state = result['state']
             await update.message.reply_text(
-                f"👁️ *ARGOS* `[{state}]`\n\n{{answer}}",
+                f"👁️ *ARGOS* `[{state}]`\n\n{answer}",
                 parse_mode="Markdown"
             )
         except Exception as e:
-            await update.message.reply_text(f"❌ Ошибка обработки голосового: {{e}}")
+            await update.message.reply_text(f"❌ Ошибка обработки голосового: {e}")
         finally:
             if temp_path and os.path.exists(temp_path):
                 try:
@@ -384,7 +381,7 @@ class ArgosTelegram:
 
             await update.message.reply_text(result[:4000])
         except Exception as e:
-            await update.message.reply_text(f"❌ Ошибка анализа изображения: {{e}}")
+            await update.message.reply_text(f"❌ Ошибка анализа изображения: {e}")
         finally:
             if temp_path and os.path.exists(temp_path):
                 try:
@@ -419,16 +416,16 @@ class ArgosTelegram:
                 await update.message.reply_text("🤷 Не удалось расшифровать аудио. Попробуйте ещё раз.")
                 return
 
-            await update.message.reply_text(f"📝 Распознано: {{text}}")
+            await update.message.reply_text(f"📝 Распознано: {text}")
             result = await self.core.process_logic_async(text, self.admin, self.flasher)
             answer = result['answer'][:4000]
             state = result['state']
             await update.message.reply_text(
-                f"👁️ *ARGOS* `[{state}]`\n\n{{answer}}",
+                f"👁️ *ARGOS* `[{state}]`\n\n{answer}",
                 parse_mode="Markdown"
             )
         except Exception as e:
-            await update.message.reply_text(f"❌ Ошибка обработки аудио: {{e}}")
+            await update.message.reply_text(f"❌ Ошибка обработки аудио: {e}")
         finally:
             if temp_path and os.path.exists(temp_path):
                 try:
@@ -440,16 +437,13 @@ class ArgosTelegram:
     def run(self):
         can_start, reason = self.can_start()
         if not can_start:
-            log.warning("[TG-BRIDGE]: Telegram-мост отключён: %s.", reason)
+            print(f"[TG-BRIDGE]: Telegram-мост отключён: {reason}.")
             return
 
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
         self.app = Application.builder().token(self.token).build()
-
-        # Delete any existing webhook to prevent conflicts
-        loop.run_until_complete(self.app.bot.delete_webhook(drop_pending_updates=True))
 
         # Команды
         self.app.add_handler(CommandHandler("start",     self.cmd_start))
@@ -481,22 +475,21 @@ class ArgosTelegram:
         try:
             loop.run_until_complete(self.app.bot.get_me())
         except InvalidToken:
-            log.error("[TG-BRIDGE]: Telegram-мост отключён: токен отклонён сервером.")
+            print("[TG-BRIDGE]: Telegram-мост отключён: токен отклонён сервером.")
             return
         except TelegramError as e:
-            log.error("[TG-BRIDGE]: Telegram preflight error: %s", e)
+            print(f"[TG-BRIDGE]: Telegram preflight error: {e}")
             return
         except Exception as e:
-            log.error("[TG-BRIDGE]: Telegram preflight unexpected error: %s", e)
+            print(f"[TG-BRIDGE]: Telegram preflight unexpected error: {e}")
             return
 
-        _allowed = ", ".join(self.allowed_ids)
-        log.info("[TG-BRIDGE]: Мост активен. Разрешённые USER_ID: [%s]", _allowed)
+        print(f"[TG-BRIDGE]: Мост активен. USER_ID={self.user_id}")
         try:
-            self.app.run_polling(close_loop=False, drop_pending_updates=True)
+            loop.run_until_complete(self.app.run_polling(close_loop=False, drop_pending_updates=True, stop_signals=None))
         except InvalidToken:
-            log.error("[TG-BRIDGE]: Telegram-мост отключён: токен отклонён сервером.")
+            print("[TG-BRIDGE]: Telegram-мост отключён: токен отклонён сервером.")
         except TelegramError as e:
-            log.error("[TG-BRIDGE]: Telegram error: %s", e)
+            print(f"[TG-BRIDGE]: Telegram error: {e}")
         except Exception as e:
-            log.error("[TG-BRIDGE]: Неожиданная ошибка Telegram-моста: %s", e)
+            print(f"[TG-BRIDGE]: Неожиданная ошибка Telegram-моста: {e}")

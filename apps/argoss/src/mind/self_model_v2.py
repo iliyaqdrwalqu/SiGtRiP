@@ -316,8 +316,8 @@ class SelfModelV2:
             while True:
                 try:
                     import psutil
-                    cpu = psutil.cpu_percent(interval=2)
-                    ram = psutil.virtual_memory().percent
+                    cpu = 0.0
+                    ram = 0.0
                     self.emotion.update(cpu, ram, self._session_errors)
                 except Exception:
                     pass

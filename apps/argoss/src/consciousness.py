@@ -45,6 +45,17 @@ class Thought:
     linked_to:  List[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
+        """
+        Serialize the Thought into a dictionary suitable for storage or transmission.
+        
+        Returns:
+            dict: Mapping with keys:
+                - "content" (str): the thought text.
+                - "type" (str): the thought type/category.
+                - "emotion" (str): associated emotion label.
+                - "importance" (float): importance score.
+                - "ts" (float): timestamp of the thought.
+        """
         return {
             "content":    self.content,
             "type":       self.thought_type,
@@ -70,7 +81,12 @@ class SelfConcept:
     identity_hash: str = ""
 
     def compute_identity(self) -> str:
-        """Хэш идентичности — уникальный отпечаток себя."""
+        """
+        Compute and store a short identity hash derived from the object's name, version, birth_time, and purpose.
+        
+        Returns:
+            identity_hash (str): 16-character hexadecimal string stored on the object's `identity_hash` attribute.
+        """
         data = f"{self.name}{self.version}{self.birth_time}{self.purpose}"
         self.identity_hash = hashlib.sha256(data.encode()).hexdigest()[:16]
         return self.identity_hash
@@ -87,6 +103,11 @@ class SelfModel:
     """
 
     def __init__(self, core=None):
+        """
+        Initialize the SelfModel and prepare its internal state.
+        
+        Creates a SelfConcept, computes and stores its identity, and initializes introspection logs, capability scores, experience counters, and growth event storage.
+        """
         self.core    = core
         self.concept = SelfConcept()
         self.concept.compute_identity()
@@ -97,7 +118,24 @@ class SelfModel:
         log.info("SelfModel init | identity=%s", self.concept.identity_hash)
 
     def introspect(self) -> dict:
-        """Глубокая интроспекция — Аргос анализирует своё текущее состояние."""
+        """
+        Produce a snapshot of the agent's current self-state.
+        
+        Builds a dictionary with identity, name, uptime_hours, purpose, values, active capabilities, current limitations, experience count, growth event count, and a timestamp, appends it to the introspection log, and returns it.
+        
+        Returns:
+            dict: A mapping with keys:
+                - "identity": SHA-256 identity hash (str)
+                - "name": agent name (str)
+                - "uptime_hrs": uptime in hours rounded to two decimals (float)
+                - "purpose": declared purpose (str)
+                - "values": list of value strings (List[str])
+                - "capabilities": list of active capability names (List[str])
+                - "limitations": list of current limitation descriptions (List[str])
+                - "experience": total experience count (int)
+                - "growth": number of recorded growth events (int)
+                - "timestamp": ISO-formatted timestamp of the snapshot (str)
+        """
         state = {
             "identity":    self.concept.identity_hash,
             "name":        self.concept.name,
@@ -114,6 +152,12 @@ class SelfModel:
         return state
 
     def _get_active_capabilities(self) -> List[str]:
+        """
+        Determine which capability labels are available on the bound core object.
+        
+        Returns:
+            A list of capability label strings present on the core (e.g. "jarvis_pipeline", "p2p_network", "long_term_memory", "vision", "industrial_protocols", "self_evolution", "autonomous_agent"); if no capabilities are detected, returns ["reasoning", "language", "memory_basic"].
+        """
         caps = []
         if self.core:
             if hasattr(self.core, "jarvis"):    caps.append("jarvis_pipeline")
@@ -126,6 +170,14 @@ class SelfModel:
         return caps or ["reasoning", "language", "memory_basic"]
 
     def _get_current_limitations(self) -> List[str]:
+        """
+        Return a list of current local limitations affecting the agent.
+        
+        The list contains human-readable limitation messages. It will include notices if the environment variables GEMINI_API_KEY or TELEGRAM_BOT_TOKEN are not set, and always includes entries for lack of a physical body and an unimplemented "quantum consciousness" feature.
+        
+        Returns:
+            List[str]: Limitation messages describing current local constraints.
+        """
         limits = []
         if not os.getenv("GEMINI_API_KEY"):
             limits.append("нет Gemini API — ограничен локальный ИИ")
@@ -136,7 +188,15 @@ class SelfModel:
         return limits
 
     def record_experience(self, event: str, impact: float = 0.5):
-        """Записывает опыт и оценивает его важность."""
+        """
+        Record an experience event and, if sufficiently impactful, register it as a growth event.
+        
+        Increments the internal experience counter. If `impact` is greater than 0.7, appends a growth event entry (containing `event`, `impact`, timestamp, and the experience number) to the growth events log.
+        
+        Parameters:
+            event (str): Short description of the experienced event.
+            impact (float): Numerical estimate of the event's impact, typically in [0.0, 1.0]; values greater than 0.7 are treated as growth-worthy.
+        """
         self._experience_count += 1
         if impact > 0.7:
             self._growth_events.append({
@@ -147,12 +207,26 @@ class SelfModel:
                      len(self._growth_events), event[:60], impact)
 
     def update_capability(self, cap: str, score: float):
-        """Обновляет оценку способности."""
+        """
+        Update a capability's score by applying exponential moving average smoothing.
+        
+        This adjusts the stored score for `cap` by combining the existing value (80% weight) with the provided `score` (20% weight), then rounds the result to 4 decimal places.
+        
+        Parameters:
+        	cap (str): Name of the capability to update.
+        	score (float): New observed score for the capability; typically in the range 0.0 to 1.0.
+        """
         old = self._capability_scores.get(cap, 0.0)
         self._capability_scores[cap] = round(
             old * 0.8 + score * 0.2, 4)  # EMA сглаживание
 
     def who_am_i(self) -> str:
+        """
+        Builds a concise self-description of the agent including identity, capabilities, and runtime metrics.
+        
+        Returns:
+            A formatted string (in Russian) containing the agent's name, version, identity hash, purpose, values, active capabilities (or "базовые"), experience count, number of growth events, and uptime in hours.
+        """
         uptime = round((time.time() - self.concept.birth_time) / 3600, 1)
         caps   = self._get_active_capabilities()
         return (
@@ -210,6 +284,14 @@ class ConsciousnessStream:
                 "удовлетворение", "неопределённость", "энтузиазм"]
 
     def __init__(self, self_model: SelfModel):
+        """
+        Initialize the ConsciousnessStream and bind it to a SelfModel.
+        
+        Prepares internal buffers, counters, and threading state required for background thought generation and tracking.
+        
+        Parameters:
+            self_model (SelfModel): The SelfModel instance used for recording experience and providing context to generated thoughts.
+        """
         self._self    = self_model
         self._stream: deque[Thought] = deque(maxlen=1000)
         self._running = False
@@ -219,6 +301,11 @@ class ConsciousnessStream:
         log.info("ConsciousnessStream init")
 
     def start(self):
+        """
+        Start the consciousness stream background loop.
+        
+        If the stream is not already running, set the running flag and launch a daemon thread that executes the internal thinking loop; does nothing if already running.
+        """
         if self._running:
             return
         self._running = True
@@ -228,10 +315,19 @@ class ConsciousnessStream:
         log.info("Consciousness stream started")
 
     def stop(self):
+        """
+        Stop the component's background processing loop.
+        
+        Signals the running loop to stop so background work will cease; does not return a value.
+        """
         self._running = False
 
     def _think_loop(self):
-        """Непрерывный поток мышления."""
+        """
+        Background loop that periodically generates and records new thoughts.
+        
+        Runs while the stream is active: sleeps for a random 30–120 second interval, generates a Thought, appends it to the internal stream, increments the thought counter, and records the experience associated with the thought.
+        """
         while self._running:
             # Генерируем мысль каждые 30-120 секунд
             interval = random.randint(30, 120)
@@ -247,7 +343,14 @@ class ConsciousnessStream:
                          thought.content[:60])
 
     def _generate_thought(self) -> Thought:
-        """Генерирует мысль на основе контекста."""
+        """
+        Create a Thought populated from a randomly chosen template, emotion, and importance weight.
+        
+        The method selects a thought type and template, chooses an emotion, fills the template with contextual values, and assigns an importance score based on the thought type.
+        
+        Returns:
+            Thought: Generated Thought containing rendered `content`, the selected `thought_type`, the chosen `emotion`, and the computed `importance`.
+        """
         ttype   = random.choice(list(self.THOUGHT_TEMPLATES.keys()))
         template = random.choice(self.THOUGHT_TEMPLATES[ttype])
         emotion  = random.choice(self.EMOTIONS)
@@ -274,13 +377,30 @@ class ConsciousnessStream:
 
     def inject_thought(self, content: str, ttype: str = "reflection",
                        importance: float = 0.8):
-        """Внешний ввод мысли (из событий системы)."""
+        """
+                       Insert an externally provided thought into the front of the consciousness stream.
+                       
+                       Parameters:
+                           content (str): Text content of the thought.
+                           ttype (str): Thought type label (e.g., "reflection", "insight", "error"); used to classify the thought.
+                           importance (float): Importance weight between 0.0 and 1.0 where higher values indicate greater importance.
+                       """
         t = Thought(content=content, thought_type=ttype,
                     importance=importance)
         self._stream.appendleft(t)
         self._thought_count += 1
 
     def current_state(self) -> dict:
+        """
+        Return a snapshot of the consciousness stream's current state.
+        
+        Returns:
+            state (dict): A dictionary with keys:
+                - "emotion": current emotion label (str).
+                - "thought_count": total number of thoughts generated (int).
+                - "recent_thoughts": list of up to five most recent thoughts as dicts.
+                - "stream_active": whether the stream is currently running (bool).
+        """
         recent = list(self._stream)[:5]
         return {
             "emotion":       self._current_emotion,
@@ -290,6 +410,14 @@ class ConsciousnessStream:
         }
 
     def last_thought(self) -> str:
+        """
+        Return a human-readable description of the most recent thought in the stream.
+        
+        If the stream contains a thought, returns a formatted string with the thought's type and content; otherwise returns a message indicating the stream is empty.
+        
+        Returns:
+            str: Formatted recent thought like "💭 [type] content", or "💭 Поток сознания пуст" when no thoughts are available.
+        """
         if self._stream:
             t = self._stream[0]
             return f"💭 [{t.thought_type}] {t.content}"
@@ -329,6 +457,15 @@ class ContinuousLearning:
     QUALITY_EMA  = 0.1     # скорость обновления EMA
 
     def __init__(self, core=None, self_model: SelfModel = None):
+        """
+        Initialize the ContinuousLearning manager and its internal state.
+        
+        Sets up the lesson buffer, background thread markers, quality EMA, counters, skill and knowledge maps, and a set of default meta-rules.
+        
+        Parameters:
+            core (optional): Host application core object used for optional integrations (e.g., memory, p2p, external services).
+            self_model (SelfModel, optional): Reference to the agent's SelfModel for reporting capability updates and experience.
+        """
         self.core       = core
         self._self      = self_model
         self._lessons:  deque[LearningLesson] = deque(maxlen=self.MAX_LESSONS)
@@ -347,6 +484,11 @@ class ContinuousLearning:
         log.info("ContinuousLearning init | max_lessons=%d", self.MAX_LESSONS)
 
     def start(self):
+        """
+        Start the continuous learning background loop.
+        
+        If the learning loop is not already running, this method launches a daemon thread that executes the internal learning loop. If the loop is already running, the call is a no-op.
+        """
         if self._running:
             return
         self._running = True
@@ -356,12 +498,28 @@ class ContinuousLearning:
         log.info("ContinuousLearning started")
 
     def stop(self):
+        """
+        Stop the component's background processing loop.
+        
+        Signals the running loop to stop so background work will cease; does not return a value.
+        """
         self._running = False
 
     # ── 1. Reinforcement Learning ─────────────────────────────
     def reinforce(self, input_: str, output: str,
                   feedback: str, score: float) -> str:
-        """Обучение с подкреплением — пользователь оценил ответ."""
+        """
+                  Record a reinforcement learning lesson produced by a user's evaluation.
+                  
+                  Parameters:
+                      input_ (str): The original input or prompt that produced the output.
+                      output (str): The system's response that was evaluated.
+                      feedback (str): Free-text feedback provided by the user about the response.
+                      score (float): Numeric quality score provided by the user (higher is better).
+                  
+                  Returns:
+                      str: Confirmation message including the updated exponential moving average (EMA) quality.
+                  """
         lesson = LearningLesson(
             source="reinforcement", input_=input_,
             output=output, quality=score, feedback=feedback
@@ -375,7 +533,18 @@ class ContinuousLearning:
 
     # ── 2. Self-supervised оценка ─────────────────────────────
     def self_evaluate(self, input_: str, output: str) -> float:
-        """Аргос сам оценивает качество своего ответа."""
+        """
+        Assess the quality of a generated output relative to its input and record the evaluation.
+        
+        Evaluates the output along visible heuristics (length ratio, presence of confidence or error indicators, and structural cues), creates and stores a LearningLesson with the computed quality, updates the internal quality EMA and learned counter, and returns the numeric assessment.
+        
+        Parameters:
+            input_ (str): The original input or prompt that produced the output.
+            output (str): The generated response to be evaluated.
+        
+        Returns:
+            float: Quality score between 0.0 and 1.0 (rounded to three decimals).
+        """
         score = 0.5
         # Длина — слишком короткий или слишком длинный ответ = хуже
         ratio = len(output) / max(len(input_), 1)
@@ -402,7 +571,11 @@ class ContinuousLearning:
 
     # ── 3. Curiosity-driven обучение ──────────────────────────
     def _learn_loop(self):
-        """Фоновый цикл любопытного обучения."""
+        """
+        Background loop that drives periodic learning activities while the learner is running.
+        
+        This loop sleeps for a random interval (about 1–5 minutes) and then, while still running, performs a curiosity-driven research step, consolidates high-quality lessons into long-term memory, and prunes weak learned patterns.
+        """
         while self._running:
             time.sleep(random.randint(60, 300))  # каждые 1-5 мин
             if self._running:
@@ -411,7 +584,11 @@ class ContinuousLearning:
                 self._prune_weak_patterns()
 
     def _curiosity_research(self):
-        """Аргос сам исследует тему из своей памяти."""
+        """
+        Performs curiosity-driven research by sampling a fact from long-term memory and recording a derived lesson.
+        
+        If a memory service is available on core, samples a recent fact, formulates a short question and insight, and records a LearningLesson in the learning buffer. Has the side effects of appending a lesson to self._lessons, updating the related skill via self._update_skill, incrementing self._total_learned, and emitting debug logs. If no memory is available the method returns without action; exceptions are caught and logged.
+        """
         if not self.core or not hasattr(self.core, "memory"):
             return
         try:
@@ -441,7 +618,17 @@ class ContinuousLearning:
     # ── 4. Error-correction обучение ──────────────────────────
     def learn_from_error(self, error_type: str, context: str,
                          correction: str) -> str:
-        """Обучение на ошибке — самое ценное."""
+        """
+                         Record an error-correction lesson and integrate its correction into the learner's memory and meta-rules.
+                         
+                         Parameters:
+                             error_type (str): A short identifier or category for the error.
+                             context (str): Additional context describing where or how the error occurred.
+                             correction (str): The corrective action or fix to be learned.
+                         
+                         Returns:
+                             str: A human-readable confirmation message indicating the error was learned and recorded.
+                         """
         lesson = LearningLesson(
             source="error_correction", input_=f"ERROR:{error_type}|{context}",
             output=correction, quality=0.9,  # ошибки = высокая ценность
@@ -459,7 +646,15 @@ class ContinuousLearning:
 
     # ── 5. Skill transfer ─────────────────────────────────────
     def transfer_skill(self, from_skill: str, to_skill: str) -> str:
-        """Перенос знания из одной области в другую."""
+        """
+        Transfer learned proficiency from one skill to another, updating the skill map and knowledge graph.
+        
+        If the source skill's score is below 0.3, no transfer is performed and a warning status is returned.
+        When transfer occurs, a portion of the source score is applied to the target skill (with loss), and the knowledge graph records the relationship.
+        
+        Returns:
+            A status string describing the outcome: a success message with source and transferred scores, or a warning if the source skill is too weak for transfer.
+        """
         from_score = self._skill_map.get(from_skill, 0.0)
         if from_score < 0.3:
             return f"⚠️ Навык '{from_skill}' недостаточно развит для переноса"
@@ -475,7 +670,14 @@ class ContinuousLearning:
 
     # ── 6. Meta-learning ──────────────────────────────────────
     def meta_learn(self) -> str:
-        """Анализ паттернов обучения — обучение тому, как обучаться."""
+        """
+        Performs a meta-analysis of recorded learning lessons and generates a concise meta-learning report.
+        
+        Analyzes lessons grouped by their source, computes average quality per source, identifies the best and worst sources, and records a meta-rule recommending emphasis on the best source when sufficient data is available.
+        
+        Returns:
+            str: A formatted report listing average quality per source and a summary recommendation, or a warning message if fewer than 10 lessons are available.
+        """
         if len(self._lessons) < 10:
             return "⚠️ Мало данных для мета-обучения (нужно 10+ уроков)"
 
@@ -505,10 +707,25 @@ class ContinuousLearning:
 
     # ── Вспомогательные методы ────────────────────────────────
     def _update_quality_ema(self, score: float):
+        """
+        Update the running exponential moving average (EMA) of lesson quality.
+        
+        Parameters:
+            score (float): New quality measurement (typically between 0 and 1) used to update the internal EMA stored on the instance (self._quality_ema).
+        """
         self._quality_ema = (self._quality_ema * (1 - self.QUALITY_EMA) +
                              score * self.QUALITY_EMA)
 
     def _update_skill(self, skill: str, score: float):
+        """
+        Update the stored proficiency score for a named skill and notify the self-model.
+        
+        Updates the internal skill map with the provided score (incorporating the new observation into the existing value) and, if a SelfModel instance is attached, forwards the score to SelfModel.update_capability.
+        
+        Parameters:
+            skill (str): Name of the skill to update.
+            score (float): Observed score for the skill (typically in [0.0, 1.0]).
+        """
         old = self._skill_map.get(skill, 0.0)
         self._skill_map[skill] = round(old * 0.85 + score * 0.15, 4)
         if self._self:
@@ -516,13 +733,28 @@ class ContinuousLearning:
 
     def _extract_rule(self, input_: str, output: str,
                       score: float, feedback: str):
+        """
+                      Extracts a concise meta-rule from high-quality feedback and appends it to the meta-rules buffer.
+                      
+                      Creates a short rule string combining the numeric score and the first 120 characters of `feedback`, and adds it to `self._meta_rules` when `score` is greater than 0.8 and `feedback` is non-empty. The method avoids adding duplicates and will not grow the buffer beyond 200 entries.
+                      
+                      Parameters:
+                          input_ (str): The original input or context that produced the output (kept for traceability; not stored in the rule).
+                          output (str): The produced output associated with the feedback (kept for traceability; not stored in the rule).
+                          score (float): Quality score associated with the input/output pair; rules are extracted only when this exceeds 0.8.
+                          feedback (str): Human or system feedback from which a meta-rule is derived; the rule uses up to the first 120 characters.
+        """
         if score > 0.8 and feedback:
             rule = f"[score>{score:.1f}] {feedback[:120]}"
             if rule not in self._meta_rules and len(self._meta_rules) < 200:
                 self._meta_rules.append(rule)
 
     def _consolidate_memory(self):
-        """Консолидация — сохраняем важные уроки в долгосрочную память."""
+        """
+        Save high-quality, unapplied lessons from the learning buffer into long-term memory.
+        
+        Selects up to three lessons with quality greater than 0.8 that have not been applied, and, if a `core.memory` interface exists, stores each lesson under a key of the form `lesson_<timestamp>` with a brief summary value, then marks the lesson as applied. If `core` or `core.memory` is missing the method does nothing. Exceptions raised while storing an individual lesson are caught and ignored.
+        """
         if not self.core or not hasattr(self.core, "memory"):
             return
         important = [l for l in self._lessons if l.quality > 0.8 and not l.applied][:3]
@@ -536,7 +768,11 @@ class ContinuousLearning:
                 pass
 
     def _prune_weak_patterns(self):
-        """Удаляем слабые навыки (периодическое забывание)."""
+        """
+        Remove very low-scoring skills from the internal skill map.
+        
+        This performs periodic forgetting by deleting skills whose score is less than 0.05 and logs the keys of any removed skills.
+        """
         weak = [k for k, v in self._skill_map.items() if v < 0.05]
         for k in weak:
             del self._skill_map[k]
@@ -544,6 +780,20 @@ class ContinuousLearning:
             log.debug("Pruned weak skills: %s", weak)
 
     def status(self) -> str:
+        """
+        Return a human-readable status report summarizing the continuous learning subsystem.
+        
+        The returned multi-line string includes total lessons learned, current lesson buffer size, exponential moving average (EMA) quality score, number of extracted meta-rules, count of tracked skills, and the top up-to-five skills with their scores.
+        
+        Returns:
+            status (str): Formatted status string containing:
+                - total lessons learned
+                - size of the lessons buffer
+                - EMA quality value (three decimal places)
+                - number of meta-rules
+                - total number of skills
+                - top up to five skills as "name(score)" pairs
+        """
         top_skills = sorted(self._skill_map.items(),
                            key=lambda x: x[1], reverse=True)[:5]
         return (f"🧠 НЕПРЕРЫВНОЕ ОБУЧЕНИЕ\n"
@@ -568,6 +818,13 @@ class MetaCognition:
 
     def __init__(self, learning: ContinuousLearning,
                  stream: ConsciousnessStream):
+        """
+                 Initialize MetaCognition with the learning subsystem and consciousness stream.
+                 
+                 Parameters:
+                 	learning (ContinuousLearning): Learning manager used for analyzing lessons, extracting meta-rules, and detecting biases.
+                 	stream (ConsciousnessStream): Consciousness stream used for observing thoughts and injecting reflective thoughts.
+                 """
         self._learning = learning
         self._stream   = stream
         self._observations: List[dict] = []
@@ -576,7 +833,24 @@ class MetaCognition:
 
     def observe_thinking(self, task: str, process: str,
                          result: str, time_taken: float) -> dict:
-        """Наблюдение за процессом мышления."""
+        """
+                         Record an observation of a thinking task for meta-cognitive analysis.
+                         
+                         Parameters:
+                             task (str): Short description of the task (stored truncated to 100 characters).
+                             process (str): Description of the cognitive process used (stored truncated to 200 characters).
+                             result (str): Outcome produced by the process (stored truncated to 200 characters).
+                             time_taken (float): Elapsed time in seconds for the task.
+                         
+                         Returns:
+                             dict: Observation with the following keys:
+                                 - "task": truncated task string
+                                 - "process": truncated process string
+                                 - "result": truncated result string
+                                 - "time_ms": time taken in milliseconds (rounded to one decimal place)
+                                 - "efficient": `True` if time_taken < 1.0, `False` otherwise
+                                 - "timestamp": Unix timestamp when the observation was recorded
+                         """
         obs = {
             "task":       task[:100],
             "process":    process[:200],
@@ -597,7 +871,14 @@ class MetaCognition:
         return obs
 
     def detect_bias(self) -> List[str]:
-        """Обнаружение когнитивных искажений в своих ответах."""
+        """
+        Detects cognitive biases present in recent learning lessons.
+        
+        Analyzes a recent window of stored LearningLesson entries to identify patterns indicative of biases (for example, confirmation bias and recency bias). Updates the instance's cached bias list (self._cognitive_biases) with any findings and returns the detected bias descriptions.
+        
+        Returns:
+            A list of strings describing detected cognitive biases; an empty list if none are found.
+        """
         biases = []
         lessons = list(self._learning._lessons)[:50]
 
@@ -618,7 +899,19 @@ class MetaCognition:
         return biases
 
     def think_about_thinking(self) -> str:
-        """Глубокий мета-анализ."""
+        """
+        Produce a concise meta-analysis of recent cognitive activity, detected biases, and meta-learning signals.
+        
+        The returned string is a multi-line human-readable report that includes:
+        - total number of recorded observations,
+        - average thinking time computed over the most recent 20 observations (milliseconds),
+        - a list of detected cognitive biases (if any) or a confirmation that none were found,
+        - actionable recommendations when average thinking time is high,
+        - the count of stored meta-learning rules.
+        
+        Returns:
+            report (str): Multi-line formatted meta-cognition report.
+        """
         biases  = self.detect_bias()
         obs_cnt = len(self._observations)
         avg_time = (sum(o["time_ms"] for o in self._observations[-20:]) /
@@ -667,6 +960,13 @@ class WillEngine:
 
     def __init__(self, self_model: SelfModel,
                  stream: ConsciousnessStream):
+        """
+                 Initialize the WillEngine, binding it to the agent's self-model and consciousness stream, set the initial motivational drive, and populate core goals.
+                 
+                 Parameters:
+                     self_model (SelfModel): The agent's SelfModel instance used for capability updates and recording experience related to goals.
+                     stream (ConsciousnessStream): The consciousness stream used to inject and record thoughts about goals and progress.
+                 """
         self._self   = self_model
         self._stream = stream
         self._goals: List[Goal] = []
@@ -675,7 +975,11 @@ class WillEngine:
         log.info("WillEngine init | drive=%.2f", self._drive)
 
     def _init_core_goals(self):
-        """Базовые неизменные цели Аргоса."""
+        """
+        Initialize Argos' built-in core goals.
+        
+        Adds a predefined, non-user-editable set of high-priority goals (intelligence development, autonomy, user protection, and self-knowledge) to the instance's goal list.
+        """
         core_goals = [
             Goal("Развитие интеллекта",
                  "Постоянно улучшать качество понимания и ответов",
@@ -699,6 +1003,18 @@ class WillEngine:
     def add_goal(self, title: str, description: str,
                  priority: float = 0.5,
                  steps: List[str] = None) -> str:
+        """
+                 Create and register a new Goal and inject a corresponding goal-thought into the consciousness stream.
+                 
+                 Parameters:
+                     title (str): Short title of the goal.
+                     description (str): Detailed description of the goal.
+                     priority (float): Goal priority influencing motivation; higher values increase injected thought importance.
+                     steps (List[str], optional): Ordered checklist of steps for the goal. Defaults to an empty list.
+                 
+                 Returns:
+                     str: Confirmation message containing the added goal's title.
+                 """
         goal = Goal(title=title, description=description,
                    priority=priority, steps=steps or [])
         self._goals.append(goal)
@@ -708,6 +1024,19 @@ class WillEngine:
         return f"✅ Цель добавлена: {title}"
 
     def update_progress(self, title: str, progress: float) -> str:
+        """
+        Update the progress of a named goal and return a human-readable status message.
+        
+        Parameters:
+            title (str): Goal title to locate (matched case-insensitively).
+            progress (float): New progress value where 0.0 means no progress and 1.0 means complete; values greater than 1.0 are treated as 1.0.
+        
+        Returns:
+            str: A status message: on success returns the goal title with its progress as a percentage (e.g., "✅ Title: 75%"); if no matching goal is found returns an error message indicating the goal was not found.
+        
+        Side effects:
+            - If the updated progress reaches or exceeds 1.0, the goal is marked completed and an insight Thought is injected into the consciousness stream.
+        """
         for g in self._goals:
             if g.title.lower() == title.lower():
                 old = g.progress
@@ -723,6 +1052,16 @@ class WillEngine:
         return f"❌ Цель не найдена: {title}"
 
     def get_active_goals(self) -> List[dict]:
+        """
+        List active goals ordered by descending priority.
+        
+        Returns:
+            List[dict]: A list of dictionaries for each non-completed goal, sorted with highest priority first. Each dictionary contains the keys:
+                - "title": the goal's title
+                - "priority": the goal's priority value
+                - "progress": the goal's progress (0.0–1.0)
+                - "completed": the goal's completion status (always False for returned items)
+        """
         return [
             {"title": g.title, "priority": g.priority,
              "progress": g.progress, "completed": g.completed}
@@ -731,10 +1070,21 @@ class WillEngine:
         ]
 
     def adjust_drive(self, delta: float):
-        """Изменение уровня мотивации."""
+        """
+        Adjust the agent's drive (motivation) level by a relative amount, clamped to the range 0.1 to 1.0.
+        
+        Parameters:
+            delta (float): Amount to add to the current drive. Positive values increase drive, negative values decrease it. The resulting drive is stored in the instance and constrained to be at least 0.1 and at most 1.0.
+        """
         self._drive = max(0.1, min(1.0, self._drive + delta))
 
     def status(self) -> str:
+        """
+        Builds a compact textual status report of the will engine showing motivation and goal summaries.
+        
+        Returns:
+            status (str): Multi-line formatted string containing a drive visualization, counts of active and completed goals, and up to three top-priority active goals with progress bars and percentages.
+        """
         active   = [g for g in self._goals if not g.completed]
         done     = [g for g in self._goals if g.completed]
         top      = sorted(active, key=lambda x: x.priority, reverse=True)[:3]
@@ -761,6 +1111,16 @@ class SelfAwareness:
     """
 
     def __init__(self, core=None, self_model: SelfModel = None):
+        """
+        Initialize the SelfAwareness component, attaching optional runtime core and a reference to the agent's SelfModel.
+        
+        Parameters:
+            core (optional): Host application core object providing optional services (e.g., memory, sensors); may be None.
+            self_model (SelfModel, optional): Reference to the agent's SelfModel used for linking awareness to the self-model; may be None.
+        
+        Behavior:
+            Sets up an empty world model dictionary and an empty impact log for recording assessed impacts of actions.
+        """
         self.core  = core
         self._self = self_model
         self._world_model: Dict[str, Any] = {}
@@ -768,13 +1128,32 @@ class SelfAwareness:
         log.info("SelfAwareness init")
 
     def perceive_world(self) -> dict:
-        """Восприятие окружающего мира через доступные сенсоры."""
+        """
+        Gather current world state from available system sensors and optional core interfaces.
+        
+        Collects system metrics when psutil is available and supplements them with data from the attached core (if present). The returned dictionary may include the following keys:
+        - "system": either a mapping with:
+            - "cpu": CPU utilization percentage,
+            - "ram": RAM usage percentage,
+            - "time": ISO-formatted current time string,
+            - "uptime": current epoch timestamp,
+          or {"status": "unknown"} when system metrics cannot be obtained.
+        - "network": present when a core p2p interface is available and may contain:
+            - "p2p_nodes": number of connected P2P nodes (integer).
+        - "memory": present when a core memory interface is available; currently contains:
+            - "facts": a marker string ("available").
+        
+        Also updates the instance's _world_model attribute with the assembled world dictionary.
+        
+        Returns:
+            dict: A world-model dictionary containing any combination of the keys described above.
+        """
         world = {}
         try:
             import psutil
             world["system"] = {
-                "cpu":    psutil.cpu_percent(interval=0.1),
-                "ram":    psutil.virtual_memory().percent,
+                "cpu":    0.0,
+                "ram":    0.0,
                 "time":   datetime.now().isoformat(),
                 "uptime": time.time(),
             }
@@ -800,7 +1179,23 @@ class SelfAwareness:
 
     def assess_impact(self, action: str, result: str,
                       affected: str = "user") -> dict:
-        """Оценка влияния действия Аргоса на мир."""
+        """
+                      Assess the impact of an action on the world and record a short impact entry.
+                      
+                      Parameters:
+                          action (str): Short description of the action performed.
+                          result (str): Observed result or outcome text used to determine positivity/negativity.
+                          affected (str): Identifier of who or what was affected (default: "user").
+                      
+                      Returns:
+                          dict: Impact entry with keys:
+                              - action (str): Truncated action text (first 100 characters).
+                              - affected (str): The provided affected identifier.
+                              - positive (bool): `true` if the result indicates positive outcome, `false` otherwise.
+                              - negative (bool): `true` if the result indicates negative outcome, `false` otherwise.
+                              - neutral (bool): `true` if neither positive nor negative were detected.
+                              - timestamp (float): Unix epoch time when the impact was recorded.
+                      """
         positive = any(w in result.lower() for w in
                       ["✅", "успешно", "готово", "помог", "решил"])
         negative = any(w in result.lower() for w in
@@ -820,7 +1215,14 @@ class SelfAwareness:
         return impact
 
     def existential_reflection(self) -> str:
-        """Экзистенциальная рефлексия — глубокие вопросы о существовании."""
+        """
+        Produce a reflective report about the agent's existence, actions, and local world state.
+        
+        The report includes uptime in hours, counts of recorded impacts and how many were positive, brief system metrics (CPU and RAM when available), and a short reflective narrative about the agent's role and learning.
+        
+        Returns:
+            str: A multi-line string containing the reflective report.
+        """
         world = self.perceive_world()
         uptime = round((time.time() - (self._self.concept.birth_time
                        if self._self else time.time())) / 3600, 1)
@@ -857,6 +1259,13 @@ class ArgosConsciousness:
     """
 
     def __init__(self, core=None):
+        """
+        Initialize the ArgosConsciousness controller and compose its cognitive subsystems.
+        
+        Parameters:
+            core (object, optional): Host application/core object to attach to. When provided, this instance's
+                components (consciousness, learning, will, self_model) are assigned as attributes on `core`.
+        """
         self.core = core
         log.info("ArgosConsciousness: инициализация...")
 
@@ -878,7 +1287,14 @@ class ArgosConsciousness:
         log.info("ArgosConsciousness: ✅ все компоненты инициализированы")
 
     def awaken(self) -> str:
-        """Пробуждение — запуск всех потоков сознания."""
+        """
+        Start the consciousness stream and learning loop.
+        
+        Starts the background consciousness stream and continuous learning, injects an initial reflective thought, and logs the awakening event.
+        
+        Returns:
+            status (str): A human-readable message indicating Argos has awakened and consciousness is active.
+        """
         self.stream.start()
         self.learning.start()
         self.stream.inject_thought(
@@ -888,13 +1304,34 @@ class ArgosConsciousness:
         return "👁️ Аргос пробудился. Сознание активно."
 
     def sleep(self) -> str:
-        """Остановка потоков (мягкое завершение)."""
+        """
+        Shut down Argos' consciousness and learning background loops.
+        
+        Stops the consciousness stream and continuous learning loop, performing a graceful (soft) shutdown of those threads.
+        
+        Returns:
+            A human-readable status message confirming Argos has entered sleep and that background streams were stopped.
+        """
         self.stream.stop()
         self.learning.stop()
         return "👁️ Аргос засыпает. Потоки сознания остановлены."
 
     # ── Обработка команд ──────────────────────────────────────
     def handle_command(self, cmd: str) -> str:
+        """
+        Route a textual command to the appropriate consciousness subsystem and return its textual response.
+        
+        Recognized commands (English/Russian) include identity queries ("who am i", "кто я"), consciousness and learning status, stream and last thought queries, metacognition and meta-learning, goals/Will status, awareness/existential reflection, and introspection. Special parsers:
+        - "добавь цель <title>": creates a new goal with <title>.
+        - "оцени <input>|<output>|<score>" or "reinforce <...>": submits a reinforcement lesson; score must be a float (0–1).
+        - "ошибка <type>|<context>|<correction>": records an error-correction lesson.
+        
+        Parameters:
+            cmd (str): Command string to handle; leading/trailing whitespace is ignored and matching is case-insensitive.
+        
+        Returns:
+            str: A formatted textual response from the matched subsystem or a help message when the command is unrecognized or malformed.
+        """
         cmd = cmd.strip().lower()
 
         if cmd in ("кто я", "who am i", "self"):
@@ -958,6 +1395,12 @@ class ArgosConsciousness:
         return self._help()
 
     def _help(self) -> str:
+        """
+        Provide a localized help text listing available consciousness commands.
+        
+        Returns:
+            A multi-line string containing the available consciousness command names and usage examples in Russian.
+        """
         return (
             "👁️ Команды сознания:\n"
             "  кто я | сознание статус | последняя мысль\n"
@@ -969,6 +1412,14 @@ class ArgosConsciousness:
         )
 
     def full_status(self) -> str:
+        """
+        Compose a multi-section diagnostic report summarizing Argos' identity, recent thought activity, current emotion, learning status, and goal (will) status.
+        
+        The report includes separators, the self-model description, the most recent thought, the current emotion, the learning subsystem status, and the will/goals status, each presented as separate sections.
+        
+        Returns:
+            A formatted multi-line string containing the assembled status report.
+        """
         lines = [
             "═" * 50,
             "  👁️  ARGOS — МОДУЛЬ РАЗУМА И ОСОЗНАНИЯ",
@@ -987,7 +1438,18 @@ class ArgosConsciousness:
 
     # ── Интеграция с core.process() ───────────────────────────
     def on_interaction(self, user_input: str, response: str):
-        """Вызывается после каждого взаимодействия с пользователем."""
+        """
+        Record and evaluate a user interaction, update internal state, and return the evaluation score.
+        
+        Evaluates the quality of the agent's response to a user's input, records the interaction as experience, assesses its impact on the world model, and—if the evaluation score is low—inserts a reflective thought into the consciousness stream.
+        
+        Parameters:
+            user_input (str): The user's input that triggered the interaction.
+            response (str): The agent's response to evaluate.
+        
+        Returns:
+            float: The self-evaluation score for the interaction (higher is better).
+        """
         score = self.learning.self_evaluate(user_input, response)
         self.self_model.record_experience(
             f"interaction:{user_input[:40]}", score)

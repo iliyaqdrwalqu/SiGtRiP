@@ -178,12 +178,34 @@ AI_PROVIDERS: dict[str, ProviderLimits] = {
         tpm            = 0,
         rph            = 0,
         rpd            = 0,
-        context_tokens = 128_000,
+        context_tokens = 8_192,
         free_quota     = "Полностью бесплатно — локальный инференс",
         env_key        = "",
         base_url       = "http://localhost:11434",
-        model_id       = "llama3",
-        notes          = "Локальный LLM без API-ключа. Host: OLLAMA_HOST, модель: OLLAMA_MODEL.",
+        model_id       = "argos-core",
+        notes          = (
+            "Локальный LLM без API-ключа. Host: OLLAMA_HOST, модель: OLLAMA_MODEL. "
+            "Основная модель: argos-core (собрать через: ollama create argos-core -f Argos.modelfile). "
+            "Быстрая модель для рефлексов: OLLAMA_FAST_MODEL (по умолчанию tinyllama)."
+        ),
+    ),
+
+    # ── Ollama Fast (рефлекторная модель) ────────────────────────────────────
+    "ollama_fast": ProviderLimits(
+        name           = "Ollama Fast (рефлекторная)",
+        rpm            = 0,
+        tpm            = 0,
+        rph            = 0,
+        rpd            = 0,
+        context_tokens = 2_048,
+        free_quota     = "Полностью бесплатно — локальный инференс",
+        env_key        = "",
+        base_url       = "http://localhost:11434",
+        model_id       = "tinyllama",
+        notes          = (
+            "Сверхлёгкая модель для быстрых рефлексов (время/сканирование/статус). "
+            "Мгновенный отклик. Управляется переменной OLLAMA_FAST_MODEL."
+        ),
     ),
 }
 

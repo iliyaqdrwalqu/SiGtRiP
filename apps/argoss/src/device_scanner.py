@@ -259,7 +259,7 @@ class DeviceScanner:
             import psutil
             for part in psutil.disk_partitions(all=False):
                 try:
-                    usage = psutil.disk_usage(part.mountpoint)
+                    usage = psutil.disk_usage('/')
                     disks.append({
                         "device":     part.device,
                         "mountpoint": part.mountpoint,
@@ -790,8 +790,8 @@ class AdaptiveImageBuilder:
             "Android Boot Guide — Argos OS\n\n"
             "1. Установи Termux (F-Droid)\n"
             "2. pkg install python git\n"
-            "3. git clone https://github.com/iliyaqdrwalqu/Argoss\n"
-            "4. cd Argoss && pip install -r requirements.txt\n"
+            "3. git clone https://github.com/sigtrip/Argosss\n"
+            "4. cd Argosss && pip install -r requirements.txt\n"
             "5. python main.py --no-gui\n\n"
             "Для прошивки через fastboot: см. AndroidFlasher\n"
         )

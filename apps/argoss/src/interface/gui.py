@@ -851,7 +851,7 @@ class ArgosGUI(ctk.CTk):
         try:
             import psutil
             lines += [
-                f"  CPU:           {psutil.cpu_percent(interval=0.2):.1f}%",
+                f"  CPU:           {psutil.cpu_percent(interval=None):.1f}%",
                 f"  RAM:           {psutil.virtual_memory().percent:.1f}%",
                 f"  Disk:          {psutil.disk_usage('/').percent:.1f}%",
             ]
@@ -936,9 +936,23 @@ class ArgosGUI(ctk.CTk):
     def _update_metrics(self):
         try:
             import psutil
-            self.bar_cpu.update(psutil.cpu_percent(interval=0.1))
-            self.bar_ram.update(psutil.virtual_memory().percent)
-            self.bar_disk.update(psutil.disk_usage("/").percent)
+            def _collect():
+                try:
+                    cpu = psutil.cpu_percent(interval=0.5)
+                    ram = psutil.virtual_memory().percent
+                    try:
+                        disk = psutil.disk_usage('/').percent
+                    except Exception:
+                        disk = 0.0
+                    def _apply(c=cpu, r=ram, d=disk):
+                        self.bar_cpu.update(c)
+                        self.bar_ram.update(r)
+                        self.bar_disk.update(d)
+                    self.after(0, _apply)
+                except Exception:
+                    pass
+            import threading
+            threading.Thread(target=_collect, daemon=True).start()
         except Exception:
             pass
 
