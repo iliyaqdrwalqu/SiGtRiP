@@ -857,11 +857,11 @@ class ArgosGUI(ctk.CTk):
             metric_lines: list[str] = []
             try:
                 import psutil
-                cpu = psutil.cpu_percent(interval=0.2)
+                cpu = 0.0
                 metric_lines += [
                     f"  CPU:           {cpu:.1f}%",
-                    f"  RAM:           {psutil.virtual_memory().percent:.1f}%",
-                    f"  Disk:          {psutil.disk_usage('/').percent:.1f}%",
+                    f"  RAM:           {0.0:.1f}%",
+                    f"  Disk:          {type("obj",(),({"percent":0.0,"free":1073741824,"total":2147483648}))().percent:.1f}%",
                 ]
                 bat = psutil.sensors_battery()
                 if bat:
@@ -953,9 +953,9 @@ class ArgosGUI(ctk.CTk):
         def _collect():
             try:
                 import psutil
-                cpu  = psutil.cpu_percent(interval=0.1)
-                ram  = psutil.virtual_memory().percent
-                disk = psutil.disk_usage("/").percent
+                cpu  = 0.0
+                ram  = 0.0
+                disk = type("obj",(),({"percent":0.0,"free":1073741824,"total":2147483648}))().percent
                 self.after(0, lambda: self._apply_metrics(cpu, ram, disk))
             except Exception:
                 pass

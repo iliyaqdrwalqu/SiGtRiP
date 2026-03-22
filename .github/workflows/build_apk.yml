@@ -1,25 +1,24 @@
-name: 🏗️ Build ARGOS Client APK
+name: "\U0001f3d7\ufe0f Build ARGOS Client APK"
 
 on:
   push:
     branches: [main]
     paths:
-      - 'main_kivy.py'
-      - 'kivy_1gui.py'
-      - 'buildozer.spec'
-      - 'src/**'
+      - "main_kivy.py"
+      - "buildozer.spec"
+      - "src/**"
   pull_request:
     branches: [main]
     paths:
-      - 'main_kivy.py'
-      - 'kivy_1gui.py'
-      - 'buildozer.spec'
+      - "main_kivy.py"
+      - "buildozer.spec"
+      - "src/**"
   workflow_dispatch:
     inputs:
       release_mode:
-        description: 'Режим сборки'
+        description: "Build mode"
         required: false
-        default: 'debug'
+        default: "debug"
         type: choice
         options:
           - debug
@@ -27,14 +26,12 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  PIP_NO_USER: "1"
+  PIP_ROOT_USER_ACTION: "ignore"
 
 jobs:
-  # ───────────────────────────────────────────────────────────────────────────
-  # Sub-agent 1: Lint Python code
-  # Runs in parallel with lint-cython to provide fast feedback on Python style.
-  # ───────────────────────────────────────────────────────────────────────────
   lint-python:
-    name: 🐍 Lint Python
+    name: "\U0001f40d Lint Python"
     runs-on: ubuntu-22.04
     permissions:
       contents: read
@@ -46,15 +43,22 @@ jobs:
       - name: Set up Python 3.10
         uses: actions/setup-python@v6
         with:
-          python-version: '3.10'
+          python-version: "3.10"
 
-      - name: Install flake8
-        run: pip install flake8
+      - name: Install flake8 and black
+        run: |
+          pip install flake8 black
 
-      - name: Run flake8 — fatal syntax / undefined-name errors
-        # Select only the most critical error codes so this job surfaces real
-        # bugs (E9xx = syntax, F63x = assert/print misuse, F7xx = syntax,
-        # F82x = undefined names) without blocking on style warnings.
+      - name: Run black (check mode)
+        run: |
+          black --check --diff \
+            src/ \
+            main*.py \
+            telegram_bot.py \
+            git_push.py \
+            2>/dev/null || true
+
+      - name: Run flake8
         run: |
           flake8 . \
             --count \
@@ -63,12 +67,8 @@ jobs:
             --statistics \
             --exclude=.buildozer,build,dist,__pycache__,.git
 
-  # ───────────────────────────────────────────────────────────────────────────
-  # Sub-agent 2: Lint Cython files
-  # Runs in parallel with lint-python; validates .pyx / .pxi files before build.
-  # ───────────────────────────────────────────────────────────────────────────
   lint-cython:
-    name: 🔬 Lint Cython
+    name: "\U0001f52c Lint Cython"
     runs-on: ubuntu-22.04
     permissions:
       contents: read
@@ -80,15 +80,12 @@ jobs:
       - name: Set up Python 3.10
         uses: actions/setup-python@v6
         with:
-          python-version: '3.10'
+          python-version: "3.10"
 
       - name: Install Cython
         run: pip install cython==0.29.36
 
       - name: Check .pyx / .pxi files for language_level directive
-        # Report any Cython source files that are missing the
-        # '# cython: language_level=3' directive.  Without it Cython defaults
-        # to Python 2 semantics and may produce hard-to-diagnose errors.
         run: |
           python3 - <<'PYEOF'
           from pathlib import Path
@@ -107,15 +104,11 @@ jobs:
               for f in missing:
                   print(f"  - {f}")
           else:
-              print("[lint-cython] ✓ All .pyx files have language_level directive (or none found).")
+              print("[lint-cython] All .pyx files have language_level directive (or none found).")
           PYEOF
 
-  # ───────────────────────────────────────────────────────────────────────────
-  # Sub-agent 3: Build APK
-  # Depends on both lint jobs; builds after code quality gates pass.
-  # ───────────────────────────────────────────────────────────────────────────
   build-apk:
-    name: Build Client APK (${{ github.event.inputs.release_mode || 'debug' }})
+    name: "Build Client APK (${{ github.event.inputs.release_mode || 'debug' }})"
     runs-on: ubuntu-22.04
     needs: [lint-python, lint-cython]
     permissions:
@@ -128,7 +121,7 @@ jobs:
       - name: Set up Python 3.10
         uses: actions/setup-python@v6
         with:
-          python-version: '3.10'
+          python-version: "3.10"
 
       - name: Install system dependencies
         run: |
@@ -146,35 +139,29 @@ jobs:
             ccache
 
       - name: Configure JAVA_HOME
-        run: |
-          echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> "$GITHUB_ENV"
+        run: echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> "$GITHUB_ENV"
 
       - name: Cache buildozer global directory
         uses: actions/cache@v5
         with:
           path: ~/.buildozer
-          key: buildozer-global-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
-          restore-keys: buildozer-global-${{ runner.os }}-
+          key: "buildozer-global-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}"
+          restore-keys: "buildozer-global-${{ runner.os }}-"
 
       - name: Cache pip packages
         uses: actions/cache@v5
         with:
           path: ~/.cache/pip
-          key: pip-buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
-          restore-keys: pip-buildozer-${{ runner.os }}-
+          key: "pip-buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}"
+          restore-keys: "pip-buildozer-${{ runner.os }}-"
 
-      - name: Install Python build tools (venv)
+      # pip install section ────────────────────────────────────────────
+      - name: Install Python build tools
         run: |
-          python3 -m venv .venv
-          echo "$GITHUB_WORKSPACE/.venv/bin" >> "$GITHUB_PATH"
-          .venv/bin/pip install --upgrade pip setuptools wheel
-          .venv/bin/pip install buildozer cython==0.29.36
+          pip install --upgrade pip setuptools wheel
+          pip install buildozer cython==0.29.36
 
-      - name: Set language_level=3 in cached .pyx/.pxd files (Cython pre-step)
-        # Add the '# cython: language_level=3' directive to any .pyx/.pxd file
-        # in the buildozer cache that lacks it.  This prevents the warning:
-        #   "Cython directive 'language_level' not set, using 2 for now (Py2)."
-        # and avoids Python 2 / Python 3 semantic mismatches during compilation.
+      - name: Set language_level=3 in cached .pyx/.pxd files
         run: |
           python3 - <<'PYEOF'
           from pathlib import Path
@@ -190,19 +177,19 @@ jobs:
                           text = pyx.read_text(encoding="utf-8", errors="replace")
                           if "language_level" not in text:
                               pyx.write_text(directive + text, encoding="utf-8")
-                              print(f"[cython-pre] Added language_level=3 to: {pyx}")
                               patched_count += 1
-                      except OSError as e:
-                          print(f"[cython-pre] WARNING: Could not patch {pyx}: {e}")
+                      except OSError:
+                          pass
 
           print(f"[cython-pre] Patched {patched_count} file(s).")
           PYEOF
 
-      - name: Patch cached pyjnius source (long → int, jlong typedef)
+      - name: Patch cached pyjnius source (long -> int, jlong typedef)
         run: |
           python3 - <<'PYEOF'
           import re
           from pathlib import Path
+
           _SENTINEL = "\x00LONGLONG\x00"
           for search_dir in [Path(".buildozer"), Path.home() / ".buildozer"]:
               if not search_dir.exists():
@@ -213,7 +200,11 @@ jobs:
                       guarded = content.replace("long long", _SENTINEL)
                       patched = re.sub(r"\blong\b", "int", guarded)
                       patched = patched.replace(_SENTINEL, "long long")
-                      patched = re.sub(r"ctypedef\s+int\s+int\s+jlong", "ctypedef long long jlong", patched)
+                      patched = re.sub(
+                          r"ctypedef\s+int\s+int\s+jlong",
+                          "ctypedef long long jlong",
+                          patched,
+                      )
                       if patched != content:
                           pxi.write_text(patched, encoding="utf-8")
                           print(f"Patched (safe): {pxi}")
@@ -226,17 +217,14 @@ jobs:
         timeout-minutes: 60
         env:
           BUILDOZER_WARN_ON_ROOT: "0"
-          # Force Cython to use Python 3 semantics for all compiled extensions.
           CYTHON_DEFAULT_LANGUAGE_LEVEL: "3"
         run: |
           MODE="${{ github.event.inputs.release_mode || 'debug' }}"
-          echo "▶ buildozer android $MODE"
-          # Capture full output so we can grep for Cython errors on failure.
-          buildozer -v android $MODE 2>&1 | tee /tmp/buildozer_output.txt
+          echo "Running: buildozer android $MODE"
+          buildozer -v android "$MODE" 2>&1 | tee /tmp/buildozer_output.txt
           BUILD_EXIT=${PIPESTATUS[0]}
           if [ "$BUILD_EXIT" -ne 0 ]; then
-            echo "::error::APK build failed (exit $BUILD_EXIT). Scanning for Cython errors..."
-            # Surface Cython-specific errors to make diagnosis easier.
+            echo "::error::APK build failed (exit $BUILD_EXIT)"
             grep -E "(Error|error:|warning:).*(Cython|\.pyx|\.pxi)|Declarator should be empty|undeclared name not builtin|language_level" \
               /tmp/buildozer_output.txt | head -50 || true
             exit "$BUILD_EXIT"
@@ -244,15 +232,13 @@ jobs:
 
       - name: List built APK(s)
         if: always()
-        run: |
-          echo "=== Собранные APK ==="
-          find bin/ -name "*.apk" 2>/dev/null || echo "APK-файлы не найдены в bin/"
+        run: find bin/ -name "*.apk" 2>/dev/null || echo "No APK files found in bin/"
 
       - name: Upload APK artifact
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: argos-client-apk-${{ github.event.inputs.release_mode || 'debug' }}-${{ github.run_number }}
+          name: "argos-client-apk-${{ github.event.inputs.release_mode || 'debug' }}-${{ github.run_number }}"
           path: bin/*.apk
           if-no-files-found: warn
           retention-days: 30

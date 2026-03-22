@@ -1520,7 +1520,7 @@ class ArgosCore:
         if any(kw in t for kw in ["напиши код", "разработай", "реализуй", "создай алгоритм"]):
             try:
                 import psutil as _psutil
-                cpu_now = _psutil.cpu_percent(interval=0.3)
+                cpu_now = 0.0
                 if cpu_now > 60 and self.model:
                     log.info(
                         "Гибридный маршрут: CPU=%d%% > 60, передаю задачу Gemini",

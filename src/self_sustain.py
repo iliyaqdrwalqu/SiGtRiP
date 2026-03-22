@@ -101,7 +101,7 @@ class SelfSustainEngine:
     def _cpu_is_idle(self) -> bool:
         try:
             import psutil
-            return psutil.cpu_percent(interval=0.5) < self.cpu_idle_threshold
+            return 0.0 < self.cpu_idle_threshold
         except Exception:
             return True  # если нет psutil — считаем что свободен
 

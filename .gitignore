@@ -14,3 +14,11 @@ config/node_id
 config/node_birth
 *.zip
 data/chroma/chroma.sqlite3
+
+# === Argos GitGuard ===
+*.key
+*.pem
+*.p12
+logs/
+.DS_Store
+builds/

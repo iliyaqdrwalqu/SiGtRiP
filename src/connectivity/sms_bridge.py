@@ -1,5 +1,7 @@
 """
-sms_bridge.py — SMS-мост Аргоса через SMSMobileAPI.
+src/connectivity/sms_bridge.py — SMS мост ARGOS
+Использует smsmobileapi (pip install smsmobileapi).
+Graceful fallback: если библиотека не установлена — возвращает ошибку.
 """
 from __future__ import annotations
 
@@ -8,51 +10,57 @@ from typing import Any
 
 try:
     from smsmobileapi import SMSMobileAPI as _SMSMobileAPI
-except ImportError:  # pragma: no cover
-    _SMSMobileAPI = None
+except ImportError:
+    _SMSMobileAPI = None  # type: ignore[assignment]
 
 
 class SMSBridge:
-    """Отправка / получение SMS через SMSMobileAPI (smsmobileapi)."""
+    """
+    Мост для отправки/получения SMS через smsmobileapi.
 
-    def __init__(
-        self,
-        api_key: str | None = None,
-        timeout: float = 15.0,
-    ):
+    Переменные окружения:
+        SMSMOBILEAPI_KEY — API ключ сервиса
+    """
+
+    def __init__(self, api_key: str = ""):
         self.api_key = api_key or os.getenv("SMSMOBILEAPI_KEY", "")
-        self.timeout = timeout
-        self._client: Any = None
-        if _SMSMobileAPI and self.api_key:
-            self._client = _SMSMobileAPI(self.api_key)
+        self._client = None
+        if self.api_key and _SMSMobileAPI:
+            try:
+                self._client = _SMSMobileAPI(self.api_key)
+            except Exception:
+                self._client = None
 
     def _ready(self) -> bool:
-        return bool(self.api_key and _SMSMobileAPI is not None)
+        return bool(self.api_key and self._client)
 
-    # ── отправка ──────────────────────────────────────────────────────
-    def send_message(self, to: str, text: str) -> dict[str, Any]:
-        """Отправить SMS через SMSMobileAPI."""
-        if _SMSMobileAPI is None:
-            return {"ok": False, "provider": "sms", "error": "smsmobileapi package is not installed"}
+    def send_message(self, to: str, text: str) -> dict:
+        """Отправить SMS. to — номер в международном формате (+7...)"""
         if not self._ready():
-            return {"ok": False, "provider": "sms", "error": "SMSMOBILEAPI_KEY is not configured"}
-
+            return {
+                "ok": False,
+                "provider": "sms",
+                "error": "SMS не настроен (SMSMOBILEAPI_KEY или pip install smsmobileapi)",
+            }
         try:
             result = self._client.send_sms(to, text)
             return {"ok": True, "provider": "sms", "data": result}
         except Exception as exc:
             return {"ok": False, "provider": "sms", "error": str(exc)}
 
-    # ── получение ─────────────────────────────────────────────────────
-    def receive_messages(self) -> dict[str, Any]:
-        """Получить входящие SMS через SMSMobileAPI."""
-        if _SMSMobileAPI is None:
-            return {"ok": False, "provider": "sms", "error": "smsmobileapi package is not installed"}
+    def receive_messages(self) -> dict:
+        """Получить входящие SMS."""
         if not self._ready():
-            return {"ok": False, "provider": "sms", "error": "SMSMOBILEAPI_KEY is not configured"}
-
+            return {"ok": False, "provider": "sms", "error": "SMS не настроен"}
         try:
-            result = self._client.get_sms()
-            return {"ok": True, "provider": "sms", "data": result}
+            msgs = self._client.get_sms()
+            return {"ok": True, "provider": "sms", "data": msgs}
         except Exception as exc:
             return {"ok": False, "provider": "sms", "error": str(exc)}
+
+    def status(self) -> str:
+        if not self.api_key:
+            return "📱 SMS: не настроен (SMSMOBILEAPI_KEY)"
+        if _SMSMobileAPI is None:
+            return "📱 SMS: ключ есть, но smsmobileapi не установлен (pip install smsmobileapi)"
+        return "📱 SMS: ✅  smsmobileapi подключён"

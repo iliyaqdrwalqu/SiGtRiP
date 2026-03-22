@@ -486,7 +486,7 @@ class ArgosTelegram:
 
         print(f"[TG-BRIDGE]: Мост активен. USER_ID={self.user_id}")
         try:
-            self.app.run_polling(close_loop=False, drop_pending_updates=True)
+            loop.run_until_complete(self.app.run_polling(close_loop=False, drop_pending_updates=True, stop_signals=None))
         except InvalidToken:
             print("[TG-BRIDGE]: Telegram-мост отключён: токен отклонён сервером.")
         except TelegramError as e:

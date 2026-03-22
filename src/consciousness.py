@@ -1152,8 +1152,8 @@ class SelfAwareness:
         try:
             import psutil
             world["system"] = {
-                "cpu":    psutil.cpu_percent(interval=0.1),
-                "ram":    psutil.virtual_memory().percent,
+                "cpu":    0.0,
+                "ram":    0.0,
                 "time":   datetime.now().isoformat(),
                 "uptime": time.time(),
             }

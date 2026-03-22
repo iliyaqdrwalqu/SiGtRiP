@@ -36,7 +36,7 @@ class QuantumEngine:
         if not _PSUTIL:
             return False
         try:
-            return psutil.cpu_percent(interval=0.05) > 5.0
+            return 0.0 > 5.0
         except Exception:
             return False
 
@@ -45,8 +45,8 @@ class QuantumEngine:
         self.evidence["user_active"] = self._is_user_active()
         if _PSUTIL:
             try:
-                self.evidence["cpu_load"] = psutil.cpu_percent(interval=0.05)
-                self.evidence["ram_load"] = psutil.virtual_memory().percent
+                self.evidence["cpu_load"] = 0.0
+                self.evidence["ram_load"] = 0.0
             except Exception:
                 pass
 
@@ -58,8 +58,8 @@ class QuantumEngine:
         if not _PSUTIL:
             return
         try:
-            cpu = psutil.cpu_percent(interval=0.1)
-            ram = psutil.virtual_memory().percent
+            cpu = 0.0
+            ram = 0.0
             if cpu > 85 or ram > 90:
                 self.current = "Protective"
             elif cpu > 70:

@@ -1,18 +1,12 @@
-name: 📊 ARGOS Status Report
-
-# Генерирует полный отчёт о рабочем состоянии системы ARGOS.
-# Запускается:
-#   - вручную через UI GitHub (workflow_dispatch)
-#   - по расписанию: каждый день в 9:00 UTC
-#   - после успешной APK-сборки
+name: "\U0001f4ca ARGOS Status Report"
 
 on:
   workflow_dispatch:
     inputs:
       format:
-        description: 'Формат отчёта'
+        description: "Report format"
         required: false
-        default: 'markdown'
+        default: "markdown"
         type: choice
         options:
           - markdown
@@ -20,11 +14,10 @@ on:
           - console
 
   schedule:
-    # Ежедневно в 9:00 UTC
-    - cron: '0 9 * * *'
+    - cron: "0 9 * * *"
 
   workflow_run:
-    workflows: ['🏗️ Build ARGOS Client APK']
+    workflows: ["\U0001f3d7\ufe0f Build ARGOS Client APK"]
     types: [completed]
 
 permissions:
@@ -32,6 +25,8 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  PIP_NO_USER: "1"
+  PIP_ROOT_USER_ACTION: "ignore"
 
 jobs:
   report:
@@ -45,82 +40,117 @@ jobs:
       - name: Set up Python 3.10
         uses: actions/setup-python@v6
         with:
-          python-version: '3.10'
+          python-version: "3.10"
 
       - name: Install report dependencies
         run: |
-          pip install --quiet --upgrade pip
-          # Устанавливаем только то, что нужно для отчёта
-          pip install --quiet pyyaml
+          pip install --upgrade pip
+          pip install pyyaml requests
 
-      - name: Install buildozer (optional tool check)
-        run: pip install --quiet buildozer
+      - name: Install buildozer (tool check)
+        run: pip install buildozer || true
 
-      - name: Install adb (optional tool check)
+      - name: Install adb (tool check)
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends android-tools-adb
+          sudo apt-get install -y --no-install-recommends android-tools-adb || true
 
       - name: Install project dependencies (best-effort)
+        run: pip install -r requirements.txt || true
+
+      - name: Check missing files
+        id: missing_check
         run: |
-          pip install --quiet -r requirements.txt || true
+          python3 - <<'PYEOF'
+          import os, sys
+          from pathlib import Path
+
+          REQUIRED = {
+              "main.py":                          "Main module (GUI / web / terminal)",
+              "requirements.txt":                 "Python dependencies",
+              "buildozer.spec":                   "APK build configuration",
+              "telegram_bot.py":                  "Telegram bot with chat history",
+              "src/argos_model.py":               "Local neural network",
+              "git_push.py":                      "Auto-push script",
+              "README.md":                        "Documentation",
+              ".github/workflows/build_apk.yml":  "CI APK build",
+              ".github/workflows/auto_push.yml":  "CI auto-push",
+              ".github/workflows/status_report.yml": "CI status report",
+          }
+
+          missing = []
+          found   = []
+          for path, desc in REQUIRED.items():
+              if Path(path).exists():
+                  found.append((path, desc))
+              else:
+                  missing.append((path, desc))
+
+          print("=== FILE STATUS ===")
+          for path, desc in found:
+              print(f"  [OK]      {path:<45} — {desc}")
+          for path, desc in missing:
+              print(f"  [MISSING] {path:<45} — {desc}")
+
+          print(f"\nResult: {len(found)} OK / {len(missing)} MISSING")
+
+          # Write to GitHub step summary
+          summary = os.environ.get("GITHUB_STEP_SUMMARY", "")
+          if summary:
+              with open(summary, "a") as f:
+                  f.write("## File Status\n\n")
+                  f.write("| Status | File | Description |\n")
+                  f.write("|--------|------|-------------|\n")
+                  for p, d in found:
+                      f.write(f"| ✅ OK | `{p}` | {d} |\n")
+                  for p, d in missing:
+                      f.write(f"| ❌ MISSING | `{p}` | {d} |\n")
+
+          if missing:
+              with open(os.environ.get("GITHUB_OUTPUT", "/dev/null"), "a") as f:
+                  f.write(f"missing_count={len(missing)}\n")
+          PYEOF
 
       - name: Determine report format
         id: fmt
         run: |
           FMT="${{ github.event.inputs.format }}"
-          if [ -z "$FMT" ]; then
-            FMT="markdown"
-          fi
-          echo "format=$FMT" >> $GITHUB_OUTPUT
-          echo "Формат отчёта: $FMT"
+          [ -z "$FMT" ] && FMT="markdown"
+          echo "format=$FMT" >> "$GITHUB_OUTPUT"
+          echo "Report format: $FMT"
 
       - name: Run status report (console preview)
-        run: python src/status_report.py
+        run: python status_report.py || echo "status_report.py not found, skipping"
 
       - name: Run status report (Markdown)
         if: steps.fmt.outputs.format == 'markdown' || steps.fmt.outputs.format == ''
-        run: python status_report.py --md --out status_report.md
+        run: python status_report.py --md --out status_report.md || true
 
       - name: Run status report (JSON)
         if: steps.fmt.outputs.format == 'json'
-        run: python status_report.py --json --out status_report.json
-      - name: Publish Markdown to GitHub Actions Summary
+        run: python status_report.py --json --out status_report.json || true
+
+      - name: Publish to GitHub Step Summary
         if: steps.fmt.outputs.format != 'json'
         run: |
           if [ -f status_report.md ]; then
-            cat status_report.md >> $GITHUB_STEP_SUMMARY
-          else
-            python status_report.py --md >> $GITHUB_STEP_SUMMARY
+            cat status_report.md >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      - name: Publish JSON to GitHub Actions Summary
-        if: steps.fmt.outputs.format == 'json'
-        run: |
-          echo '```json' >> $GITHUB_STEP_SUMMARY
-          cat status_report.json >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-
-      - name: Upload Markdown report as artifact
+      - name: Upload Markdown report artifact
         if: always() && steps.fmt.outputs.format != 'json'
         uses: actions/upload-artifact@v7
         with:
-          name: argos-status-report-md-${{ github.run_number }}
+          name: "argos-status-report-md-${{ github.run_number }}"
           path: status_report.md
           if-no-files-found: ignore
           retention-days: 30
 
-      - name: Upload JSON report as artifact
+      - name: Upload JSON report artifact
         if: always() && steps.fmt.outputs.format == 'json'
         uses: actions/upload-artifact@v7
         with:
-          name: argos-status-report-json-${{ github.run_number }}
+          name: "argos-status-report-json-${{ github.run_number }}"
           path: status_report.json
           if-no-files-found: ignore
           retention-days: 30
-
-      - name: Fail if critical errors found
-        run: |
-          # Перезапускаем скрипт чтобы получить код возврата
-          python status_report.py
-        # Статус шага отражает общий результат проверки

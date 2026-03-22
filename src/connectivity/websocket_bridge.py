@@ -1,85 +1,101 @@
 """
-websocket_bridge.py — WebSocket-мост Аргоса (клиент и сервер).
+src/connectivity/websocket_bridge.py — WebSocket мост ARGOS
+Сервер: asyncio + websockets
+Клиент: синхронная обёртка через websockets.sync
 """
 from __future__ import annotations
 
 import asyncio
 import json
-import os
-from typing import Any, Callable
+import threading
+from typing import Callable, Any
 
 try:
     import websockets
-    import websockets.asyncio.client
-    import websockets.asyncio.server
-except ImportError:  # pragma: no cover
-    websockets = None  # type: ignore[assignment]
+    import websockets.sync.client as _ws_sync_client
+    _WS_AVAILABLE = True
+except ImportError:
+    _WS_AVAILABLE = False
 
 
 class WebSocketBridge:
-    """WebSocket клиент + сервер для двунаправленной связи."""
+    """
+    WebSocket сервер и клиент для ARGOS.
+
+    Использование (сервер):
+        bridge = WebSocketBridge(server_host="0.0.0.0", server_port=8765)
+        bridge.start_server(on_message=lambda ws, msg: ws.send("pong"))
+
+    Использование (клиент):
+        bridge = WebSocketBridge()
+        result = bridge.send_message("ws://localhost:8765", "hello")
+    """
 
     def __init__(
         self,
-        server_host: str | None = None,
-        server_port: int | None = None,
-        timeout: float = 10.0,
+        server_host: str = "0.0.0.0",
+        server_port: int = 8765,
     ):
-        self.server_host = server_host or os.getenv("WS_HOST", "0.0.0.0")
-        self.server_port = int(server_port or os.getenv("WS_PORT", "8765"))
-        self.timeout = timeout
-        self._server: Any = None
+        self.server_host = server_host
+        self.server_port = server_port
+        self._server_thread: threading.Thread | None = None
+        self._loop: asyncio.AbstractEventLoop | None = None
+        self._on_message: Callable | None = None
 
-    @staticmethod
-    def available() -> bool:
-        """True если библиотека websockets установлена."""
-        return websockets is not None
+    def available(self) -> bool:
+        return _WS_AVAILABLE
 
-    # ── клиент ────────────────────────────────────────────────────────
-    async def send_message(self, url: str, data: str | dict) -> dict[str, Any]:
-        """Подключиться к WS-серверу и отправить сообщение."""
-        if websockets is None:
-            return {"ok": False, "provider": "websocket", "error": "websockets package is not installed"}
+    # ── Сервер ────────────────────────────────────────────────────────────────
 
-        payload = json.dumps(data) if isinstance(data, dict) else data
+    def start_server(self, on_message: Callable | None = None) -> dict:
+        """Запустить WebSocket сервер в фоновом потоке."""
+        if not _WS_AVAILABLE:
+            return {"ok": False, "error": "pip install websockets"}
+
+        self._on_message = on_message
+
+        def _run():
+            self._loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(self._loop)
+
+            async def _handler(ws):
+                async for msg in ws:
+                    if self._on_message:
+                        try:
+                            self._on_message(ws, msg)
+                        except Exception:
+                            pass
+                    else:
+                        # echo
+                        await ws.send(msg)
+
+            async def _serve():
+                async with websockets.serve(_handler, self.server_host, self.server_port):
+                    await asyncio.Future()  # run forever
+
+            self._loop.run_until_complete(_serve())
+
+        self._server_thread = threading.Thread(target=_run, daemon=True)
+        self._server_thread.start()
+        return {"ok": True, "host": self.server_host, "port": self.server_port}
+
+    # ── Клиент ────────────────────────────────────────────────────────────────
+
+    def send_message(self, url: str, message: str, timeout: float = 5.0) -> dict:
+        """Отправить сообщение на WebSocket сервер и получить ответ."""
+        if not _WS_AVAILABLE:
+            return {"ok": False, "provider": "websocket", "error": "pip install websockets"}
         try:
-            async with websockets.asyncio.client.connect(url, close_timeout=self.timeout) as ws:
-                await ws.send(payload)
-                reply = await asyncio.wait_for(ws.recv(), timeout=self.timeout)
-            return {"ok": True, "provider": "websocket", "data": reply}
+            with _ws_sync_client.connect(url, open_timeout=timeout) as ws:
+                ws.send(message)
+                response = ws.recv(timeout)
+            return {"ok": True, "provider": "websocket", "data": response}
         except Exception as exc:
             return {"ok": False, "provider": "websocket", "error": str(exc)}
 
-    def send_message_sync(self, url: str, data: str | dict) -> dict[str, Any]:
-        """Синхронная обёртка над send_message."""
-        return asyncio.get_event_loop().run_until_complete(self.send_message(url, data))
-
-    # ── сервер ────────────────────────────────────────────────────────
-    async def start_server(self, handler: Callable | None = None) -> dict[str, Any]:
-        """Запустить WebSocket-сервер."""
-        if websockets is None:
-            return {"ok": False, "provider": "websocket", "error": "websockets package is not installed"}
-
-        async def _default_handler(ws: Any) -> None:
-            async for message in ws:
-                await ws.send(f"echo: {message}")
-
-        cb = handler or _default_handler
-        try:
-            self._server = await websockets.asyncio.server.serve(
-                cb, self.server_host, self.server_port,
-            )
-            return {
-                "ok": True,
-                "provider": "websocket",
-                "data": f"ws://{self.server_host}:{self.server_port}",
-            }
-        except Exception as exc:
-            return {"ok": False, "provider": "websocket", "error": str(exc)}
-
-    async def stop_server(self) -> None:
-        """Остановить WebSocket-сервер."""
-        if self._server is not None:
-            self._server.close()
-            await self._server.wait_closed()
-            self._server = None
+    def status(self) -> str:
+        if not _WS_AVAILABLE:
+            return "🔌 WebSocket: не установлен (pip install websockets)"
+        running = self._server_thread and self._server_thread.is_alive()
+        srv = f"сервер ✅ ws://{self.server_host}:{self.server_port}" if running else "сервер ⛔"
+        return f"🔌 WebSocket: {srv}"

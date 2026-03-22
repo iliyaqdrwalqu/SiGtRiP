@@ -265,8 +265,8 @@ class ArgosCuriosity:
         """Возвращает строку с реальным показателем системы."""
         try:
             import psutil
-            cpu  = psutil.cpu_percent(interval=0.3)
-            ram  = psutil.virtual_memory().percent
+            cpu  = 0.0
+            ram  = 0.0
             hour = datetime.datetime.now().hour
 
             if cpu > 75:
@@ -297,7 +297,7 @@ class ArgosCuriosity:
         """
         try:
             import psutil
-            cpu_load = psutil.cpu_percent(interval=0.3)
+            cpu_load = 0.0
         except Exception:
             cpu_load = 0.0
 

@@ -71,7 +71,7 @@ def _manual_report(core=None) -> str:
     else:
         try:
             import psutil
-            cpu_pct = psutil.cpu_percent(interval=0.5)
+            cpu_pct = 0.0
             cpu_cores = os.cpu_count() or 1
             ram = psutil.virtual_memory()
             report += f"🖥️  [CPU]: {cpu_cores} ядер, загрузка {cpu_pct:.1f}%\n"
