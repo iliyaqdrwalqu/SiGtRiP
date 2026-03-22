@@ -276,6 +276,10 @@ class ArgosCore:
         try:
             from src.memory import ArgosMemory
             self.memory = ArgosMemory()
+        try:
+            self.thought_book = ArgosThoughtBook(core=self) if ArgosThoughtBook else None
+        except Exception:
+            self.thought_book = None
             self.context.memory_ref = self.memory
             log.info("Память: OK")
         except Exception as e:
