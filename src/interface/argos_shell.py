@@ -175,7 +175,7 @@ class ArgosShell(cmd.Cmd):
         """Системный статус: CPU, RAM, диск, сеть, root."""
         cpu   = 0.0
         mem   = psutil.virtual_memory()
-        disk  = psutil_android.disk_usage()
+        disk  = psutil.disk_usage("/") if hasattr(psutil, "disk_usage") else type("D",(),({"percent":0,"free":0,"total":0,"used":0}))()
         boot  = datetime.fromtimestamp(psutil.boot_time()).strftime("%Y-%m-%d %H:%M")
         procs = len(psutil.pids())
 
@@ -434,7 +434,7 @@ class ArgosShell(cmd.Cmd):
     def _panel_stats(self):
         cpu  = 0.0
         mem  = 0.0
-        disk = psutil_android.disk_usage().percent
+        disk = psutil.disk_usage("/") if hasattr(psutil, "disk_usage") else type("D",(),({"percent":0,"free":0,"total":0,"used":0}))().percent
         t = Table(box=None, expand=True)
         t.add_column("Метрика")
         t.add_column("Значение", justify="right")
@@ -837,7 +837,7 @@ class ArgosShell(cmd.Cmd):
         
         cpu = 0.0
         mem = 0.0
-        disk = psutil_android.disk_usage().percent
+        disk = psutil.disk_usage("/") if hasattr(psutil, "disk_usage") else type("D",(),({"percent":0,"free":0,"total":0,"used":0}))().percent
         
         table.add_row("CPU Load", f"[green]{cpu}%[/green]" if cpu < 50 else f"[red]{cpu}%[/red]")
         table.add_row("Memory", f"[yellow]{mem}%[/yellow]")

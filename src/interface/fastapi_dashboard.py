@@ -109,7 +109,7 @@ except Exception:
                 mem = psutil.virtual_memory()
                 info["ram_pct"] = mem.percent
                 info["ram_mb"] = mem.total // 1024 // 1024
-                disk = psutil_android.disk_usage()
+                disk = psutil.disk_usage("/") if hasattr(psutil, "disk_usage") else type("D",(),({"percent":0,"free":0,"total":0,"used":0}))()
                 info["disk_pct"] = disk.percent
             except Exception:
                 pass

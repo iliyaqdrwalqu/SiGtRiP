@@ -224,7 +224,7 @@ class ArgosToolCallingEngine:
     def _tool_get_disk_usage(self, arguments: dict[str, Any]) -> str:
         path = arguments.get("path") or "/"
         try:
-            usage = psutil_android.disk_usage()
+            usage = psutil.disk_usage("/") if hasattr(psutil, "disk_usage") else type("D",(),({"percent":0,"free":0,"total":0,"used":0}))()
             total_gb = usage.total / (1024 ** 3)
             free_gb = usage.free / (1024 ** 3)
             used_gb = usage.used / (1024 ** 3)

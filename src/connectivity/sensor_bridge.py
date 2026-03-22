@@ -114,13 +114,13 @@ class ArgosSensorBridge:
 
     def _disk_percent(self) -> float:
         try:
-            return psutil_android.disk_usage().percent
+            return psutil.disk_usage("/") if hasattr(psutil, "disk_usage") else type("D",(),({"percent":0,"free":0,"total":0,"used":0}))().percent
         except Exception:
             return 0.0
 
     def _disk_free_gb(self) -> int:
         try:
-            return psutil_android.disk_usage().free // (1024**3)
+            return psutil.disk_usage("/") if hasattr(psutil, "disk_usage") else type("D",(),({"percent":0,"free":0,"total":0,"used":0}))().free // (1024**3)
         except Exception:
             return 0
 

@@ -261,7 +261,7 @@ except Exception:
     from src import psutil_android as psutil
             cpu  = 0.0
             ram  = 0.0
-            disk = psutil_android.disk_usage().percent
+            disk = psutil.disk_usage("/") if hasattr(psutil, "disk_usage") else type("D",(),({"percent":0,"free":0,"total":0,"used":0}))().percent
             quantum = "Analytic"
             if core and hasattr(core, "quantum"):
                 quantum = getattr(core.quantum, "state", "Analytic")
