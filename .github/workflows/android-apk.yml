@@ -97,7 +97,7 @@ jobs:
               for f in missing:
                   print(f"  - {f}")
           else:
-              print("[lint-cython] ✓ All .pyx files have language_level directive (or none found).")
+              print("[lint-cython] OK: All .pyx files have language_level directive (or none found).")
 PYEOF
 
   # ───────────────────────────────────────────────────────────────────────────
