@@ -50,6 +50,15 @@ jobs:
           find .buildozer ~/.buildozer -name "*.pyx" -o -name "*.pxd" 2>/dev/null | while read f; do
             grep -q "language_level" "$f" || sed -i '1s/^/# cython: language_level=3\n/' "$f"
           done || true
+      - name: Patch buildozer internals no --user
+        run: |
+          SITE=$(python3 -c "import site; print(site.getsitepackages()[0])")
+          find "$SITE" -name "*.py" 2>/dev/null | xargs grep -rl "\-\-user" 2>/dev/null | while read f; do
+            sed -i 's/"--user"//g; s/"--user", //g; s/, "--user"//g' "$f" || true
+            sed -i "s/'--user'//g; s/'--user', //g; s/, '--user'//g" "$f" || true
+          done
+          echo "Done"
+
       - name: Build APK
         timeout-minutes: 45
         env:
@@ -72,3 +81,11 @@ jobs:
           path: /tmp/build.log
           if-no-files-found: ignore
           retention-days: 30
+      - name: Patch buildozer internals no --user
+        run: |
+          SITE=$(python3 -c "import site; print(site.getsitepackages()[0])")
+          find "$SITE/buildozer" "$SITE/pythonforandroid" -name "*.py" 2>/dev/null | while read f; do
+            sed -i 's/"--user"//g; s/"--user", //g; s/, "--user"//g' "$f"
+            sed -i "s/'--user'//g; s/'--user', //g; s/, '--user'//g" "$f"
+          done
+          echo "Buildozer patched"
