@@ -56,10 +56,10 @@ jobs:
           done
           echo "Patch done"
       - name: Build APK
-        run: buildozer android debug 2>&1 | tee /tmp/build.log; exit ${PIPESTATUS[0]}
+        run: cd apps/argoss && buildozer android debug 2>&1 | tee /tmp/build.log; exit ${PIPESTATUS[0]}
         timeout-minutes: 45
         env:
-          BUILDOZER_SPEC_FILENAME: buildozer_local.spec
+          BUILDOZER_SPEC_FILENAME: apps/argoss/buildozer.spec
       - name: Upload APK
         if: always()
         uses: actions/upload-artifact@v7
