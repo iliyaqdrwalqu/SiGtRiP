@@ -258,7 +258,7 @@ def create_app(core=None):
             import psutil
             cpu  = 0.0
             ram  = 0.0
-            disk = psutil.disk_usage("/") if hasattr(psutil, "disk_usage") else type("D",(),({"percent":0,"free":0,"total":0,"used":0}))().percent
+            disk = psutil.disk_usage("/").percent
             quantum = "Analytic"
             if core and hasattr(core, "quantum"):
                 quantum = getattr(core.quantum, "state", "Analytic")

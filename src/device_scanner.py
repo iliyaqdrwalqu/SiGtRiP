@@ -259,7 +259,7 @@ class DeviceScanner:
             import psutil
             for part in psutil.disk_partitions(all=False):
                 try:
-                    usage = psutil.disk_usage("/") if hasattr(psutil, "disk_usage") else type("D",(),({"percent":0,"free":0,"total":0,"used":0}))()
+                    usage = psutil.disk_usage("/")
                     disks.append({
                         "device":     part.device,
                         "mountpoint": part.mountpoint,
