@@ -1938,6 +1938,69 @@ class ArgosCore:
             return ctrl.screenshot() if ctrl else "❌ input_control недоступен"
 
         
+                # ── Управление мышью и клавиатурой ──────────────────────────
+        if any(k in t for k in ["мышь", "mouse", "курсор"]):
+            ctrl = getattr(self, "input_ctrl", None)
+            if not ctrl:
+                return "❌ input_control не инициализирован"
+            parts = text.strip().split()
+            if len(parts) < 2:
+                return ctrl.status()
+            cmd = parts[1].lower()
+            nums = []
+            for p in parts[2:]:
+                try: nums.append(int(p))
+                except: pass
+            if cmd in ("move", "переместить", "перемести"):
+                return ctrl.move(nums[0], nums[1]) if len(nums) >= 2 else "❓ мышь move X Y"
+            elif cmd in ("click", "клик", "кликни"):
+                return ctrl.click(nums[0] if len(nums) > 0 else None,
+                                   nums[1] if len(nums) > 1 else None)
+            elif cmd in ("rclick", "правый"):
+                return ctrl.right_click(nums[0] if nums else None,
+                                         nums[1] if len(nums)>1 else None)
+            elif cmd in ("dclick", "двойной"):
+                return ctrl.double_click(nums[0] if nums else None,
+                                          nums[1] if len(nums)>1 else None)
+            elif cmd in ("scroll", "прокрутка"):
+                return ctrl.scroll(nums[0] if nums else 3)
+            elif cmd in ("drag", "перетащи"):
+                return ctrl.drag(*nums[:4]) if len(nums) >= 4 else "❓ мышь drag X1 Y1 X2 Y2"
+            elif cmd in ("позиция", "position", "pos"):
+                return ctrl.position()
+            return ctrl.status()
+
+        if any(k in t for k in ["клавиша", "нажми", "hotkey", "keyboard"]):
+            ctrl = getattr(self, "input_ctrl", None)
+            if not ctrl:
+                return "❌ input_control не инициализирован"
+            key = text.split(None, 1)[1].strip() if len(text.split()) > 1 else ""
+            return ctrl.press(key) if key else "❓ клавиша ENTER / клавиша ctrl+c"
+
+        if t.startswith("печатай ") or t.startswith("напечатай "):
+            ctrl = getattr(self, "input_ctrl", None)
+            if not ctrl:
+                return "❌ input_control не инициализирован"
+            txt = text.split(None, 1)[1].strip() if len(text.split()) > 1 else ""
+            return ctrl.type_text(txt) if txt else "❓ печатай ТЕКСТ"
+
+        if t.startswith("буфер "):
+            ctrl = getattr(self, "input_ctrl", None)
+            if ctrl:
+                txt = text.split(None, 1)[1].strip()
+                return ctrl.write_clipboard(txt)
+
+        if t.startswith("макрос "):
+            ctrl = getattr(self, "input_ctrl", None)
+            if ctrl:
+                name = text.split(None, 1)[1].strip()
+                return ctrl.run_macro(name)
+
+        if t in ("скриншот", "screenshot"):
+            ctrl = getattr(self, "input_ctrl", None)
+            return ctrl.screenshot() if ctrl else "❌ input_control недоступен"
+
+        
         if any(k in t for k in ["консоль", "терминал"]):
             if not self.context.allow_root:
                 return "⛔ Команды терминала ограничены текущим квантовым профилем (без root-допуска)."
