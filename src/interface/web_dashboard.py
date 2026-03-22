@@ -281,7 +281,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         cpu  = 0.0
         ram  = 0.0
-        disk = psutil.disk_usage("/").percent
+        disk = psutil.disk_usage('/').percent
 
         # Сеть
         try:

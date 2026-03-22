@@ -149,7 +149,7 @@ class HealthMonitor:
             cpu_pct  = 0.0
             ram      = psutil.virtual_memory()
             ram_pct  = ram.percent
-            disk     = psutil.disk_usage("/")
+            disk     = psutil.disk_usage('/')
             disk_pct = disk.percent
             components.append(ComponentStatus("cpu",  True, cpu_pct,  f"{cpu_pct:.1f}%"))
             components.append(ComponentStatus("ram",  True, ram_pct,  f"{ram_pct:.1f}%"))

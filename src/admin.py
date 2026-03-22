@@ -120,7 +120,7 @@ class ArgosAdmin:
     def get_stats(self):
         c = 0.0
         r = 0.0
-        disk = psutil.disk_usage("/")
+        disk = psutil.disk_usage('/')
         return (f"ЦП: {c}% | ОЗУ: {r}% | "
                 f"Диск: {disk.free // (2**30)}GB свободно | ОС: {self.os_type}")
 

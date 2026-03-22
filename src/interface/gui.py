@@ -861,7 +861,7 @@ class ArgosGUI(ctk.CTk):
                 metric_lines += [
                     f"  CPU:           {cpu:.1f}%",
                     f"  RAM:           {0.0:.1f}%",
-                    f"  Disk:          {psutil.disk_usage("/").percent:.1f}%",
+                    f"  Disk:          {psutil.disk_usage('/').percent:.1f}%",
                 ]
                 bat = psutil.sensors_battery()
                 if bat:
@@ -955,7 +955,7 @@ class ArgosGUI(ctk.CTk):
                 import psutil
                 cpu  = 0.0
                 ram  = 0.0
-                disk = psutil.disk_usage("/").percent
+                disk = psutil.disk_usage('/').percent
                 self.after(0, lambda: self._apply_metrics(cpu, ram, disk))
             except Exception:
                 pass

@@ -106,7 +106,7 @@ class FastAPIDashboard:
                 mem = psutil.virtual_memory()
                 info["ram_pct"] = mem.percent
                 info["ram_mb"] = mem.total // 1024 // 1024
-                disk = psutil.disk_usage("/")
+                disk = psutil.disk_usage('/')
                 info["disk_pct"] = disk.percent
             except Exception:
                 pass

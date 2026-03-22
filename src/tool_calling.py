@@ -221,7 +221,7 @@ class ArgosToolCallingEngine:
     def _tool_get_disk_usage(self, arguments: dict[str, Any]) -> str:
         path = arguments.get("path") or "/"
         try:
-            usage = psutil.disk_usage("/")
+            usage = psutil.disk_usage('/')
             total_gb = usage.total / (1024 ** 3)
             free_gb = usage.free / (1024 ** 3)
             used_gb = usage.used / (1024 ** 3)

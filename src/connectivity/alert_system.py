@@ -62,9 +62,9 @@ class AlertSystem:
 
         # Диск
         try:
-            disk = psutil.disk_usage("/").percent
+            disk = psutil.disk_usage('/').percent
             if disk >= THRESHOLDS["disk"]:
-                free_gb = psutil.disk_usage("/").free // (2**30)
+                free_gb = psutil.disk_usage('/').free // (2**30)
                 alerts.append(self._fire("disk", f"💿 Диск почти заполнен: {disk:.1f}% (свободно {free_gb}GB)"))
         except Exception:
             pass
@@ -131,7 +131,7 @@ class AlertSystem:
     def status(self) -> str:
         cpu  = 0.0
         ram  = 0.0
-        try: disk = psutil.disk_usage("/").percent
+        try: disk = psutil.disk_usage('/').percent
         except: disk = 0
         lines = [
             "🔔 СИСТЕМА АЛЕРТОВ:",
