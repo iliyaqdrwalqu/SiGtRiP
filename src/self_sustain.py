@@ -100,11 +100,8 @@ class SelfSustainEngine:
 
     def _cpu_is_idle(self) -> bool:
         try:
-            try:
-    import psutil
-except Exception:
-    from src import psutil_android as psutil
-            return 0.0 < self.cpu_idle_threshold
+            import psutil
+            return psutil.cpu_percent(interval=0.5) < self.cpu_idle_threshold
         except Exception:
             return True  # если нет psutil — считаем что свободен
 

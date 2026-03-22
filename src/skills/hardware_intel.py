@@ -70,12 +70,10 @@ def _manual_report(core=None) -> str:
         report += "📡 [NFC]: Чип переведён в режим мониторинга UID.\n"
     else:
         try:
-            try:
-    import psutil
-except Exception:
-    from src import psutil_android as psutil
-            cpu_pct = 0.0
+            import psutil
+            cpu_pct = psutil.cpu_percent(interval=0.5)
             cpu_cores = os.cpu_count() or 1
+            ram = psutil.virtual_memory()
             ram = psutil.virtual_memory()
             report += f"🖥️  [CPU]: {cpu_cores} ядер, загрузка {cpu_pct:.1f}%\n"
             report += f"💾 [RAM]: {ram.percent:.1f}% использовано ({ram.used // 1024**2} MB / {ram.total // 1024**2} MB)\n"
