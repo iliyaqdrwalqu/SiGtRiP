@@ -7,7 +7,10 @@ import threading
 import time
 import os
 import requests
-import psutil
+try:
+    import psutil
+except Exception:
+    from src import psutil_android as psutil
 from src.argos_logger import get_logger
 
 log = get_logger("argos.alerts")
@@ -62,9 +65,9 @@ class AlertSystem:
 
         # Диск
         try:
-            disk = type("obj",(),({"percent":0.0,"free":1073741824,"total":2147483648}))().percent
+            disk = psutil_android.disk_usage().percent
             if disk >= THRESHOLDS["disk"]:
-                free_gb = type("obj",(),({"percent":0.0,"free":1073741824,"total":2147483648}))().free // (2**30)
+                free_gb = psutil_android.disk_usage().free // (2**30)
                 alerts.append(self._fire("disk", f"💿 Диск почти заполнен: {disk:.1f}% (свободно {free_gb}GB)"))
         except Exception:
             pass
@@ -131,7 +134,7 @@ class AlertSystem:
     def status(self) -> str:
         cpu  = 0.0
         ram  = 0.0
-        try: disk = type("obj",(),({"percent":0.0,"free":1073741824,"total":2147483648}))().percent
+        try: disk = psutil_android.disk_usage().percent
         except: disk = 0
         lines = [
             "🔔 СИСТЕМА АЛЕРТОВ:",

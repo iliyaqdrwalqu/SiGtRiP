@@ -1,4 +1,7 @@
-import psutil
+try:
+    import psutil
+except Exception:
+    from src import psutil_android as psutil
 import platform
 import os
 import shutil
@@ -120,7 +123,7 @@ class ArgosAdmin:
     def get_stats(self):
         c = 0.0
         r = 0.0
-        disk = type("obj",(),({"percent":0.0,"free":1073741824,"total":2147483648}))()
+        disk = psutil_android.disk_usage()
         return (f"ЦП: {c}% | ОЗУ: {r}% | "
                 f"Диск: {disk.free // (2**30)}GB свободно | ОС: {self.os_type}")
 

@@ -255,10 +255,13 @@ def create_app(core=None):
     @app.get("/api/metrics")
     async def metrics():
         try:
-            import psutil
+            try:
+    import psutil
+except Exception:
+    from src import psutil_android as psutil
             cpu  = 0.0
             ram  = 0.0
-            disk = type("obj",(),({"percent":0.0,"free":1073741824,"total":2147483648}))().percent
+            disk = psutil_android.disk_usage().percent
             quantum = "Analytic"
             if core and hasattr(core, "quantum"):
                 quantum = getattr(core.quantum, "state", "Analytic")

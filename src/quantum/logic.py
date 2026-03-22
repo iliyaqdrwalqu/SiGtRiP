@@ -2,7 +2,10 @@
 import time
 
 try:
+    try:
     import psutil
+except Exception:
+    from src import psutil_android as psutil
     _PSUTIL = True
 except ImportError:
     _PSUTIL = False

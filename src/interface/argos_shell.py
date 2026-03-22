@@ -9,7 +9,10 @@ import threading
 import time
 from datetime import datetime
 
-import psutil
+try:
+    import psutil
+except Exception:
+    from src import psutil_android as psutil
 
 from src.security.syscalls import ArgosSyscalls
 from src.security.root_manager import RootManager
@@ -172,7 +175,7 @@ class ArgosShell(cmd.Cmd):
         """Системный статус: CPU, RAM, диск, сеть, root."""
         cpu   = 0.0
         mem   = psutil.virtual_memory()
-        disk  = type("obj",(),({"percent":0.0,"free":1073741824,"total":2147483648}))()
+        disk  = psutil_android.disk_usage()
         boot  = datetime.fromtimestamp(psutil.boot_time()).strftime("%Y-%m-%d %H:%M")
         procs = len(psutil.pids())
 
@@ -431,7 +434,7 @@ class ArgosShell(cmd.Cmd):
     def _panel_stats(self):
         cpu  = 0.0
         mem  = 0.0
-        disk = type("obj",(),({"percent":0.0,"free":1073741824,"total":2147483648}))().percent
+        disk = psutil_android.disk_usage().percent
         t = Table(box=None, expand=True)
         t.add_column("Метрика")
         t.add_column("Значение", justify="right")
@@ -834,7 +837,7 @@ class ArgosShell(cmd.Cmd):
         
         cpu = 0.0
         mem = 0.0
-        disk = type("obj",(),({"percent":0.0,"free":1073741824,"total":2147483648}))().percent
+        disk = psutil_android.disk_usage().percent
         
         table.add_row("CPU Load", f"[green]{cpu}%[/green]" if cpu < 50 else f"[red]{cpu}%[/red]")
         table.add_row("Memory", f"[yellow]{mem}%[/yellow]")

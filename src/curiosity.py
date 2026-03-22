@@ -264,7 +264,10 @@ class ArgosCuriosity:
     def _get_system_metric(self) -> str:
         """Возвращает строку с реальным показателем системы."""
         try:
-            import psutil
+            try:
+    import psutil
+except Exception:
+    from src import psutil_android as psutil
             cpu  = 0.0
             ram  = 0.0
             hour = datetime.datetime.now().hour
@@ -296,7 +299,10 @@ class ArgosCuriosity:
         Аргос анализирует накопленные данные и создаёт инсайты.
         """
         try:
-            import psutil
+            try:
+    import psutil
+except Exception:
+    from src import psutil_android as psutil
             cpu_load = 0.0
         except Exception:
             cpu_load = 0.0

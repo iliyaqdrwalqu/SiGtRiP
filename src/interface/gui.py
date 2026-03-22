@@ -856,12 +856,15 @@ class ArgosGUI(ctk.CTk):
         def _collect():
             metric_lines: list[str] = []
             try:
-                import psutil
+                try:
+    import psutil
+except Exception:
+    from src import psutil_android as psutil
                 cpu = 0.0
                 metric_lines += [
                     f"  CPU:           {cpu:.1f}%",
                     f"  RAM:           {0.0:.1f}%",
-                    f"  Disk:          {type("obj",(),({"percent":0.0,"free":1073741824,"total":2147483648}))().percent:.1f}%",
+                    f"  Disk:          {psutil_android.disk_usage().percent:.1f}%",
                 ]
                 bat = psutil.sensors_battery()
                 if bat:
@@ -952,10 +955,13 @@ class ArgosGUI(ctk.CTk):
         """Собирает метрики в фоновом потоке, затем обновляет виджеты в UI-потоке."""
         def _collect():
             try:
-                import psutil
+                try:
+    import psutil
+except Exception:
+    from src import psutil_android as psutil
                 cpu  = 0.0
                 ram  = 0.0
-                disk = type("obj",(),({"percent":0.0,"free":1073741824,"total":2147483648}))().percent
+                disk = psutil_android.disk_usage().percent
                 self.after(0, lambda: self._apply_metrics(cpu, ram, disk))
             except Exception:
                 pass

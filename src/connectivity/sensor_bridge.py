@@ -6,7 +6,10 @@ import platform, socket, time
 from collections import deque
 from typing import Any, Dict
 
-import psutil
+try:
+    import psutil
+except Exception:
+    from src import psutil_android as psutil
 
 from src.argos_logger import get_logger
 log = get_logger("argos.sensor")
@@ -111,13 +114,13 @@ class ArgosSensorBridge:
 
     def _disk_percent(self) -> float:
         try:
-            return type("obj",(),({"percent":0.0,"free":1073741824,"total":2147483648}))().percent
+            return psutil_android.disk_usage().percent
         except Exception:
             return 0.0
 
     def _disk_free_gb(self) -> int:
         try:
-            return type("obj",(),({"percent":0.0,"free":1073741824,"total":2147483648}))().free // (1024**3)
+            return psutil_android.disk_usage().free // (1024**3)
         except Exception:
             return 0
 

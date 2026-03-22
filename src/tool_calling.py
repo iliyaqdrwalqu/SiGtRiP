@@ -12,7 +12,10 @@ import logging
 import os
 from typing import Any, Callable
 
-import psutil
+try:
+    import psutil
+except Exception:
+    from src import psutil_android as psutil
 import requests
 
 MAX_PREVIOUS_OUTPUTS = 5
@@ -221,7 +224,7 @@ class ArgosToolCallingEngine:
     def _tool_get_disk_usage(self, arguments: dict[str, Any]) -> str:
         path = arguments.get("path") or "/"
         try:
-            usage = type("obj",(),({"percent":0.0,"free":1073741824,"total":2147483648}))()
+            usage = psutil_android.disk_usage()
             total_gb = usage.total / (1024 ** 3)
             free_gb = usage.free / (1024 ** 3)
             used_gb = usage.used / (1024 ** 3)

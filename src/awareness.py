@@ -41,7 +41,10 @@ except ImportError:
                 "time": time.strftime("%Y-%m-%dT%H:%M:%S"),
             }
             try:
-                import psutil
+                try:
+    import psutil
+except Exception:
+    from src import psutil_android as psutil
                 mem = psutil.virtual_memory()
                 world["cpu_pct"] = 0.0
                 world["ram_pct"] = mem.percent

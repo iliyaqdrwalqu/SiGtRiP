@@ -70,7 +70,10 @@ def _manual_report(core=None) -> str:
         report += "📡 [NFC]: Чип переведён в режим мониторинга UID.\n"
     else:
         try:
-            import psutil
+            try:
+    import psutil
+except Exception:
+    from src import psutil_android as psutil
             cpu_pct = 0.0
             cpu_cores = os.cpu_count() or 1
             ram = psutil.virtual_memory()

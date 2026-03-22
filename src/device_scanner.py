@@ -215,7 +215,10 @@ class DeviceScanner:
 
         # Частота
         try:
-            import psutil
+            try:
+    import psutil
+except Exception:
+    from src import psutil_android as psutil
             fi = psutil.cpu_freq()
             if fi:
                 freq_mhz = int(fi.current)
@@ -236,7 +239,10 @@ class DeviceScanner:
     def _scan_ram(self) -> dict:
         total_mb, avail_mb = 0, 0
         try:
-            import psutil
+            try:
+    import psutil
+except Exception:
+    from src import psutil_android as psutil
             m        = psutil.virtual_memory()
             total_mb = m.total // 1024 // 1024
             avail_mb = m.available // 1024 // 1024
@@ -256,10 +262,13 @@ class DeviceScanner:
     def _scan_storage(self) -> list[dict]:
         disks: list[dict] = []
         try:
-            import psutil
+            try:
+    import psutil
+except Exception:
+    from src import psutil_android as psutil
             for part in psutil.disk_partitions(all=False):
                 try:
-                    usage = type("obj",(),({"percent":0.0,"free":1073741824,"total":2147483648}))()
+                    usage = psutil_android.disk_usage()
                     disks.append({
                         "device":     part.device,
                         "mountpoint": part.mountpoint,
@@ -282,7 +291,10 @@ class DeviceScanner:
         internet   = False
 
         try:
-            import psutil
+            try:
+    import psutil
+except Exception:
+    from src import psutil_android as psutil
             for name, addrs in psutil.net_if_addrs().items():
                 ips = [a.address for a in addrs if a.family == socket.AF_INET]
                 if ips:

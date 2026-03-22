@@ -12,7 +12,10 @@ import time
 import uuid
 import hashlib
 import platform
-import psutil
+try:
+    import psutil
+except Exception:
+    from src import psutil_android as psutil
 import datetime
 import requests
 from typing import Optional

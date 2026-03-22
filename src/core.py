@@ -1519,7 +1519,10 @@ class ArgosCore:
         # ── Гибридный маршрутизатор: CPU > 60% → Gemini ──────
         if any(kw in t for kw in ["напиши код", "разработай", "реализуй", "создай алгоритм"]):
             try:
-                import psutil as _psutil
+                try:
+    import psutil
+except Exception:
+    from src import psutil_android as psutil as _psutil
                 cpu_now = 0.0
                 if cpu_now > 60 and self.model:
                     log.info(
@@ -1673,7 +1676,10 @@ class ArgosCore:
             if admin:
                 stats = admin.get_stats()
             else:
-                import psutil as _ps
+                try:
+    import psutil
+except Exception:
+    from src import psutil_android as psutil as _ps
                 c = _ps.cpu_percent(interval=0.5)
                 r = _ps.virtual_memory().percent
                 disk = _ps.disk_usage('/')
@@ -2853,7 +2859,10 @@ class ArgosCore:
 
         def _power_line() -> str:
             try:
-                import psutil
+                try:
+    import psutil
+except Exception:
+    from src import psutil_android as psutil
                 battery = psutil.sensors_battery()
                 if battery is None:
                     return "  Питание/мощность: ✅ сеть/стационарный режим (battery sensor отсутствует)"

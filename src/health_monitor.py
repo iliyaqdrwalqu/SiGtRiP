@@ -145,11 +145,14 @@ class HealthMonitor:
 
         # psutil — опционально
         try:
-            import psutil
+            try:
+    import psutil
+except Exception:
+    from src import psutil_android as psutil
             cpu_pct  = 0.0
             ram      = psutil.virtual_memory()
             ram_pct  = ram.percent
-            disk     = type("obj",(),({"percent":0.0,"free":1073741824,"total":2147483648}))()
+            disk     = psutil_android.disk_usage()
             disk_pct = disk.percent
             components.append(ComponentStatus("cpu",  True, cpu_pct,  f"{cpu_pct:.1f}%"))
             components.append(ComponentStatus("ram",  True, ram_pct,  f"{ram_pct:.1f}%"))

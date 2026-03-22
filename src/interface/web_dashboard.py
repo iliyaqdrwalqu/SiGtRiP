@@ -274,14 +274,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def _status_json(self) -> bytes:
-        import psutil, json
+        try:
+    import psutil
+except Exception:
+    from src import psutil_android as psutil, json
         uptime_s = int(time.time() - self.start_t)
         h, m = divmod(uptime_s // 60, 60)
         uptime = f"{h}ч {m}мин"
 
         cpu  = 0.0
         ram  = 0.0
-        disk = type("obj",(),({"percent":0.0,"free":1073741824,"total":2147483648}))().percent
+        disk = psutil_android.disk_usage().percent
 
         # Сеть
         try:
