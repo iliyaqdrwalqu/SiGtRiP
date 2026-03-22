@@ -752,3 +752,242 @@ class ArgosThoughtBook:
             "  законы          — 10 Законов разума Аргоса\n"
             "  стат            — статистика"
         )
+
+
+# ════════════════════════════════════════════════════════════════
+#  Расширение: чтение и создание файлов
+# ════════════════════════════════════════════════════════════════
+
+import os as _os
+import re as _re
+
+
+def _read_txt(path: str) -> str:
+    """Читаем текстовый файл."""
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            return f.read()
+    except Exception as e:
+        return f"❌ Ошибка чтения: {e}"
+
+
+def _read_pdf(path: str) -> str:
+    """Читаем PDF файл."""
+    try:
+        import pdfplumber
+        with pdfplumber.open(path) as pdf:
+            pages = []
+            for p in pdf.pages:
+                text = p.extract_text()
+                if text:
+                    pages.append(text)
+        return "\n".join(pages)
+    except ImportError:
+        pass
+    try:
+        import PyPDF2
+        with open(path, "rb") as f:
+            reader = PyPDF2.PdfReader(f)
+            return "\n".join(
+                page.extract_text() or "" for page in reader.pages
+            )
+    except ImportError:
+        pass
+    try:
+        import subprocess
+        result = subprocess.run(
+            ["pdftotext", path, "-"],
+            capture_output=True, text=True, timeout=30
+        )
+        if result.returncode == 0:
+            return result.stdout
+    except Exception:
+        pass
+    return "❌ Для PDF установи: pip install pdfplumber или pip install PyPDF2"
+
+
+def _read_docx(path: str) -> str:
+    """Читаем Word документ."""
+    try:
+        import docx
+        doc = docx.Document(path)
+        return "\n".join(p.text for p in doc.paragraphs if p.text)
+    except ImportError:
+        return "❌ Для DOCX установи: pip install python-docx"
+    except Exception as e:
+        return f"❌ Ошибка: {e}"
+
+
+def _read_md(path: str) -> str:
+    """Читаем Markdown файл."""
+    return _read_txt(path)
+
+
+def _read_file(path: str) -> str:
+    """Автоопределение формата и чтение."""
+    p = Path(path)
+    if not p.exists():
+        # Пробуем стандартные пути
+        for prefix in ["/sdcard/", "/sdcard/Download/",
+                       str(Path.home()), str(Path.home() / "storage/downloads/")]:
+            alt = Path(prefix) / path
+            if alt.exists():
+                p = alt
+                break
+        else:
+            return f"❌ Файл не найден: {path}"
+
+    ext = p.suffix.lower()
+    if ext in (".txt", ".log", ".csv", ".json", ".yaml", ".yml"):
+        return _read_txt(str(p))
+    elif ext == ".pdf":
+        return _read_pdf(str(p))
+    elif ext in (".docx", ".doc"):
+        return _read_docx(str(p))
+    elif ext in (".md", ".rst"):
+        return _read_md(str(p))
+    else:
+        # Пробуем как текст
+        content = _read_txt(str(p))
+        if "❌" not in content:
+            return content
+        return f"❌ Неподдерживаемый формат: {ext}"
+
+
+def _create_file(path: str, content: str) -> str:
+    """Создаём файл с содержимым."""
+    try:
+        p = Path(path)
+        if not p.is_absolute():
+            p = Path.home() / "SiGtRiP" / "data" / path
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(content, encoding="utf-8")
+        return f"✅ Файл создан: {p}\n({len(content)} символов)"
+    except Exception as e:
+        return f"❌ Ошибка создания: {e}"
+
+
+def _save_to_memory(core, text: str, source: str) -> str:
+    """Сохраняем прочитанный текст в память ARGOS."""
+    if not core or not hasattr(core, "memory") or not core.memory:
+        return ""
+    try:
+        # Разбиваем на чанки по 500 символов
+        chunks = [text[i:i+500] for i in range(0, min(len(text), 5000), 500)]
+        saved = 0
+        for i, chunk in enumerate(chunks):
+            key = f"{Path(source).stem}_chunk{i}"
+            core.memory.remember(key, chunk, category="file")
+            saved += 1
+        return f"\n💾 Сохранено в память: {saved} фрагментов"
+    except Exception:
+        return ""
+
+
+# ── Патч метода handle_command ────────────────────────────────────────────────
+
+_ORIGINAL_HANDLE = None
+
+
+def _patched_handle_command(self, command: str) -> str:
+    """Расширенный handle_command с поддержкой файлов."""
+    cmd = command.strip()
+    cmd_lower = cmd.lower()
+
+    # ── Чтение файла ──────────────────────────────────────────────
+    for prefix in ("прочитай ", "читай ", "read ", "открой ", "загрузи "):
+        if cmd_lower.startswith(prefix):
+            path = cmd[len(prefix):].strip()
+            content = _read_file(path)
+            if content.startswith("❌"):
+                return content
+            # Сохраняем в память
+            mem_result = _save_to_memory(self.core, content, path)
+            preview = content[:1000] + ("..." if len(content) > 1000 else "")
+            return (
+                f"📄 Файл: {path}\n"
+                f"Размер: {len(content)} символов\n"
+                f"{'━'*40}\n"
+                f"{preview}"
+                f"{mem_result}"
+            )
+
+    # ── Изучение файла (полное + анализ ИИ) ──────────────────────
+    for prefix in ("изучи ", "study ", "analyze ", "анализируй "):
+        if cmd_lower.startswith(prefix):
+            path = cmd[len(prefix):].strip()
+            content = _read_file(path)
+            if content.startswith("❌"):
+                return content
+            mem_result = _save_to_memory(self.core, content, path)
+            # Просим ИИ проанализировать
+            if self.core and hasattr(self.core, "process"):
+                try:
+                    q = f"Проанализируй этот текст кратко:\n{content[:2000]}"
+                    analysis = self.core.process(q).get("answer", "")
+                    return (
+                        f"📚 Изучен файл: {path}\n"
+                        f"Размер: {len(content)} символов\n"
+                        f"{'━'*40}\n"
+                        f"🤖 Анализ:\n{analysis}"
+                        f"{mem_result}"
+                    )
+                except Exception:
+                    pass
+            return f"📚 Изучен: {path}\n{content[:500]}...{mem_result}"
+
+    # ── Создание файла ────────────────────────────────────────────
+    for prefix in ("создай файл ", "create file ", "запиши в файл ",
+                   "сохрани в файл ", "новый файл "):
+        if cmd_lower.startswith(prefix):
+            rest = cmd[len(prefix):].strip()
+            # Формат: имя_файла | содержимое
+            if "|" in rest:
+                fname, content = rest.split("|", 1)
+                return _create_file(fname.strip(), content.strip())
+            else:
+                return (
+                    "❓ Формат: книга создай файл имя.txt | содержимое\n"
+                    "Пример: книга создай файл notes.txt | Мои заметки"
+                )
+
+    # ── Список файлов ─────────────────────────────────────────────
+    if cmd_lower in ("файлы", "мои файлы", "list files", "ls"):
+        paths_to_check = [
+            Path.home() / "SiGtRiP" / "data",
+            Path("/sdcard/Download"),
+            Path("/sdcard/Documents"),
+        ]
+        lines = ["📂 Доступные файлы:\n"]
+        for p in paths_to_check:
+            if p.exists():
+                files = list(p.glob("*"))[:10]
+                if files:
+                    lines.append(f"  {p}:")
+                    for f in files:
+                        lines.append(f"    📄 {f.name}")
+        return "\n".join(lines) if len(lines) > 1 else "📂 Файлы не найдены"
+
+    # ── Конвертация ───────────────────────────────────────────────
+    if cmd_lower.startswith("конвертируй ") or cmd_lower.startswith("convert "):
+        rest = cmd.split(" ", 1)[1].strip()
+        if " в " in rest or " to " in rest:
+            parts = rest.replace(" to ", " в ").split(" в ")
+            src = parts[0].strip()
+            fmt = parts[1].strip().lower()
+            content = _read_file(src)
+            if content.startswith("❌"):
+                return content
+            dst = Path(src).stem + f".{fmt}"
+            return _create_file(dst, content)
+
+    # Оригинальный обработчик
+    if _ORIGINAL_HANDLE:
+        return _ORIGINAL_HANDLE(self, command)
+    return f"❓ Неизвестная команда: {command}"
+
+
+# Применяем патч
+if _ORIGINAL_HANDLE is None:
+    _ORIGINAL_HANDLE = ArgosThoughtBook.handle_command
+    ArgosThoughtBook.handle_command = _patched_handle_command
