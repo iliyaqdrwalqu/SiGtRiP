@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
     paths:
+      - "apps/argoss/**"
       - "main_argos_local.py"
       - "buildozer_local.spec"
       - "src/**"
