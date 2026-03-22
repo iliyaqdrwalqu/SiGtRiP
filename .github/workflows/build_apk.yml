@@ -247,3 +247,11 @@ jobs:
         run: |
           pip config set global.no-user-site true
           echo "PIP_NO_USER=1" >> $GITHUB_ENV
+
+      - name: Disable pip user installs globally
+        run: |
+          mkdir -p ~/.config/pip
+          echo "[global]" > ~/.config/pip/pip.conf
+          echo "no-user-site = true" >> ~/.config/pip/pip.conf
+          mkdir -p /home/runner/.config/pip
+          cp ~/.config/pip/pip.conf /home/runner/.config/pip/pip.conf
