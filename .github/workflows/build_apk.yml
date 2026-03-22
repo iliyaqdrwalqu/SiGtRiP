@@ -1,7 +1,6 @@
 name: "\U0001f3d7\ufe0f Build ARGOS Client APK"
 
 on:
-  workflow_dispatch:
   push:
     branches: [main]
     paths:
