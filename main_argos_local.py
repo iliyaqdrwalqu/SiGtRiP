@@ -8,3 +8,4 @@ from src.interface.kivy_local_ui import ArgosLocalApp
 
 if __name__ == "__main__":
     ArgosLocalApp().run()
+# trigger
