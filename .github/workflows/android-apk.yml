@@ -98,7 +98,7 @@ jobs:
                   print(f"  - {f}")
           else:
               print("[lint-cython] ✓ All .pyx files have language_level directive (or none found).")
-          PYEOF
+PYEOF
 
   # ───────────────────────────────────────────────────────────────────────────
   # Sub-agent 3: Build APK
@@ -204,7 +204,7 @@ jobs:
                           print(f"[cython-pre] WARNING: Could not patch {pyx}: {e}")
 
           print(f"[cython-pre] Patched {patched_count} file(s).")
-          PYEOF
+PYEOF
 
       - name: Patch cached pyjnius source (long → int for Python 3 / Cython 3)
         # Root cause of "Declarator should be empty":
@@ -236,7 +236,7 @@ jobs:
                   except OSError as e:
                       print(f"Could not patch {pxi}: {e}")
           print("pyjnius cache patch done.")
-          PYEOF
+PYEOF
 
       - name: Patch buildozer --user
         run: |
