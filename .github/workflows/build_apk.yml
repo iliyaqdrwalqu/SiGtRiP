@@ -25,6 +25,8 @@ on:
           - release
 
 env:
+  PIP_USER: "0"
+  PYTHONNOUSERSITE: "1"
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
   PIP_NO_USER: "1"
   PIP_ROOT_USER_ACTION: "ignore"

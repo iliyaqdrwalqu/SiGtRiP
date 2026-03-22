@@ -12,6 +12,7 @@ on:
   workflow_dispatch:
 
 env:
+  PIP_USER: "0"
   PIP_NO_USER: "1"
   PYTHONNOUSERSITE: "1"
   CYTHON_DEFAULT_LANGUAGE_LEVEL: "3"
@@ -34,6 +35,24 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y autoconf automake libtool build-essential \
             libffi-dev libssl-dev git zip unzip zlib1g-dev cmake ccache
+      - name: Pre-patch buildozer pip user calls
+        run: |
+          export PIP_USER=0
+          pip config set global.no-user-site true 2>/dev/null || true
+          find / -path "*/buildozer/*.py" 2>/dev/null | while read f; do
+            sed -i 's/"--user", //g; s/, "--user"//g; s/"--user"//g' "$f" 2>/dev/null || true
+            sed -i "s/'--user', //g; s/, '--user'//g; s/'--user'//g" "$f" 2>/dev/null || true
+          done || true
+
+      - name: Pre-patch buildozer pip user calls
+        run: |
+          export PIP_USER=0
+          pip config set global.no-user-site true 2>/dev/null || true
+          find / -path "*/buildozer/*.py" 2>/dev/null | while read f; do
+            sed -i 's/"--user", //g; s/, "--user"//g; s/"--user"//g' "$f" 2>/dev/null || true
+            sed -i "s/'--user', //g; s/, '--user'//g; s/'--user'//g" "$f" 2>/dev/null || true
+          done || true
+
       - name: Set up venv and install buildozer
         run: |
           python -m venv venv
