@@ -1,9 +1,23 @@
-python-telegram-bot==13.15
+# ARGOS Android/Termux requirements
+# Установка: pip install -r requirements_android.txt
+
+# Обязательные
 requests>=2.31.0
 python-dotenv>=1.0.0
+python-telegram-bot>=20.0
 aiohttp>=3.9.0
+
+# IoT
 paho-mqtt>=2.0.0
 pyserial>=3.5
+
+# Парсинг
 beautifulsoup4>=4.12.0
+
+# Утилиты
 packaging>=23.0
 networkx>=3.2.1
+
+# Системные (устанавливать через pkg, не pip)
+# pkg install python-psutil
+# pkg install python-cryptography
