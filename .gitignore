@@ -28,3 +28,4 @@ builds/
 .env.orangepi
 .env.orangepi
 .env*
+.env*
