@@ -30,9 +30,7 @@ os.environ.setdefault("KIVY_NO_ARGS", "1")
 # [FIX-9] Подавляем окно Kivy только в headless/server-режиме.
 # В desktop-режиме Kivy может использоваться как запасной GUI,
 # поэтому KIVY_HEADLESS нельзя ставить когда активен boot_desktop().
-_GUI_MODES = {"--mobile", "--no-gui", "--root", "--shell"}
-_is_server_mode = "--no-gui" in sys.argv and "--mobile" not in sys.argv
-if _is_server_mode:
+if "--mobile" not in sys.argv:
     os.environ.setdefault("KIVY_NO_ENV_CONFIG", "1")
     os.environ.setdefault("KIVY_HEADLESS", "1")
 
