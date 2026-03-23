@@ -13,15 +13,17 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:11434"]
       interval: 30s
       timeout: 10s
-      retries: 3
+      retries: 5
 
   argos:
-    image: sigtrip/argoss:latest
+    image: ghcr.io/iliyaqdrwalqu/argoss:latest
     container_name: argos_main
     env_file: .env
     environment:
-      - OLLAMA_HOST=http://ollama:11434
+      - OLLAMA_HOST=http://argos_ollama:11434
       - ARGOS_AI_MODE=auto
+      - ARGOS_HOMEOSTASIS=on
+      - ARGOS_CURIOSITY=on
     ports:
       - "8080:8080"
     depends_on:
