@@ -7,12 +7,12 @@
 [![.github/workflows/publish_testpypi.yml](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/publish_testpypi.yml/badge.svg)](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/publish_testpypi.yml)
 [![🚀 Auto Push Commit to Repo](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/auto_push.yml/badge.svg)](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/auto_push.yml)
 [![🖥️ Build ARGOS Windows setup.exe](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/build_windows.yml/badge.svg)](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/build_windows.yml)
-[![CI](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/ci.yml/badge.svg)](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/ci.yml)
+[![🤖CI](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/ci.yml/badge.svg)](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/ci.yml)
 [![Docker](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/docker.yml/badge.svg)](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/docker.yml)
 [![Android APK](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/android-apk.yml/badge.svg)](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/android-apk.yml)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iliyaqdrwalqu/SiGtRiP/blob/main/colab/ARGOS_Colab_Launch.ipynb)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![🏗️ Build ARGOS Client APK](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/build_apk.yml/badge.svg)](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/build_apk.yml)
+[![🏗️ Build ARGOS Client APK](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/build_apk_client.yml/badge.svg)](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/build_apk_client.yml)
 > **Docker image:** `ghcr.io/iliyaqdrwalqu/argoss:latest` — published automatically on every push to `main`.  
 > **Android APK:** [![Build ARGOS Client APK](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/build_apk_client.yml/badge.svg)](https://github.com/iliyaqdrwalqu/SiGtRiP/actions/workflows/build_apk_client.yml)
 
